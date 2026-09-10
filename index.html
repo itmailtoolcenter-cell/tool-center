@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบเครื่องมือส่วนกลาง · PART 1–2 + Master Data</title>
+<title>ระบบเครื่องมือส่วนกลาง · PART 1–2 + Master Data + PDF Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 
 /* =========================
@@ -830,6 +832,10 @@ SECTION 13 : MASTER DATA
         <button class="btn-ghost" id="btnBorrowClearFilter">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
           ล้างตัวกรอง
+        </button>
+        <button class="btn-outline-accent" id="btnBorrowPdf" title="สร้างรายงาน PDF ตามตัวกรองปัจจุบัน">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h2.2a1.8 1.8 0 0 1 0 3.6H8V13zM14 13v4M14 13h3M14 15h2.5"/></svg>
+          Report PDF
         </button>
       </div>
 
@@ -2823,6 +2829,167 @@ function getFilteredBorrows(){
     return tabOk && searchOk && deptOk;
   });
 }
+/* =========================
+   BORROW / RETURN · PDF REPORT
+   สร้าง PDF จากข้อมูลตาม Tab / Search / Department filter ปัจจุบัน
+========================= */
+function borrowReportStatusText(tx){
+  if(tx.status === 'Returned') return 'คืนแล้ว';
+  if(tx.status === 'Cancelled') return 'ยกเลิก';
+  if(isBorrowOverdue(tx)) return 'เกินกำหนด';
+  return 'กำลังยืม';
+}
+function borrowReportTabText(){
+  return ({active:'กำลังยืม',overdue:'เกินกำหนด',returned:'คืนแล้ว',all:'ทั้งหมด'})[borrowState.tab] || 'ทั้งหมด';
+}
+function reportText(v){
+  return String(v ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function shortReportText(v, max=28){
+  const t=String(v ?? '-');
+  return t.length>max ? t.slice(0,max-1)+'…' : t;
+}
+function chunkArray(arr,size){
+  const out=[];
+  for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size));
+  return out;
+}
+function createBorrowReportPage(rows, pageNo, totalPages, summary, startIndex){
+  const page=document.createElement('section');
+  page.style.cssText=`width:1120px;height:792px;background:#fff;color:#17202a;padding:28px 32px 24px;box-sizing:border-box;font-family:'Sarabun',Arial,sans-serif;position:relative;overflow:hidden;`;
+
+  const tableRows=rows.map((tx,i)=>{
+    const globalNo=startIndex+i+1;
+    return `<tr>
+      <td>${globalNo}</td>
+      <td><b>${reportText(tx.borrow_no||'-')}</b></td>
+      <td>${reportText(tx.tool_no||'-')}</td>
+      <td>${reportText(shortReportText(tx.tool_name||'-',22))}</td>
+      <td>${reportText(shortReportText(tx.borrower_name||'-',20))}${tx.borrower_code?`<div style="font-size:8px;color:#6b7280;">${reportText(tx.borrower_code)}</div>`:''}</td>
+      <td>${reportText(shortReportText(tx.borrower_department||'-',16))}</td>
+      <td>${reportText(fmtDateTime(tx.borrowed_at))}</td>
+      <td>${reportText(tx.due_at?fmtDateTime(tx.due_at):'-')}</td>
+      <td>${reportText(tx.returned_at?fmtDateTime(tx.returned_at):'-')}</td>
+      <td><b>${reportText(borrowReportStatusText(tx))}</b></td>
+      <td>${reportText(shortReportText(tx.issued_by||'-',16))}</td>
+    </tr>`;
+  }).join('');
+
+  page.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2f6fed;padding-bottom:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#2f6fed;letter-spacing:.5px;">CENTRAL TOOLS · PART 2 BORROW / RETURN</div>
+        <div style="font-size:22px;font-weight:700;margin-top:2px;">รายงานระบบยืม–คืนเครื่องมือส่วนกลาง</div>
+        <div style="font-size:10px;color:#66748a;margin-top:3px;">รายงานตามเงื่อนไขที่เลือกในหน้าระบบ ณ เวลาสร้างเอกสาร</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:#66748a;line-height:1.55;">
+        <b style="color:#17202a;">วันที่ออกรายงาน</b><br>${reportText(summary.generatedAt)}<br>
+        หน้า ${pageNo} / ${totalPages}
+      </div>
+    </div>
+
+    ${pageNo===1 ? `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+      <div style="border:1px solid #e2e6ec;border-radius:9px;padding:8px 10px;"><div style="font-size:9px;color:#66748a;">รายการในรายงาน</div><div style="font-size:19px;font-weight:700;">${summary.total}</div></div>
+      <div style="border:1px solid #f0d9bd;background:#fff9f1;border-radius:9px;padding:8px 10px;"><div style="font-size:9px;color:#8a5a1f;">กำลังยืม</div><div style="font-size:19px;font-weight:700;">${summary.active}</div></div>
+      <div style="border:1px solid #f0c5c2;background:#fff5f4;border-radius:9px;padding:8px 10px;"><div style="font-size:9px;color:#a52b23;">เกินกำหนด</div><div style="font-size:19px;font-weight:700;">${summary.overdue}</div></div>
+      <div style="border:1px solid #c9e7d5;background:#f4fbf7;border-radius:9px;padding:8px 10px;"><div style="font-size:9px;color:#157347;">คืนแล้ว</div><div style="font-size:19px;font-weight:700;">${summary.returned}</div></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center;background:#f5f7fa;border:1px solid #e2e6ec;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:9.5px;color:#4b5563;">
+      <span><b>สถานะ:</b> ${reportText(summary.tab)}</span>
+      <span><b>แผนก:</b> ${reportText(summary.dept||'ทั้งหมด')}</span>
+      <span><b>คำค้น:</b> ${reportText(summary.search||'–')}</span>
+    </div>` : `<div style="height:4px;"></div>`}
+
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.3px;line-height:1.25;">
+      <thead><tr style="background:#eef3ff;color:#263b62;">
+        <th style="width:3%;">No.</th>
+        <th style="width:14%;">เลขที่ยืม</th>
+        <th style="width:8%;">Tool No.</th>
+        <th style="width:11%;">เครื่องมือ</th>
+        <th style="width:11%;">ผู้ยืม</th>
+        <th style="width:8%;">แผนก</th>
+        <th style="width:11%;">วันที่ยืม</th>
+        <th style="width:11%;">กำหนดคืน</th>
+        <th style="width:11%;">วันที่คืน</th>
+        <th style="width:7%;">สถานะ</th>
+        <th style="width:9%;">ผู้จ่าย</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    <div style="position:absolute;left:32px;right:32px;bottom:17px;display:flex;justify-content:space-between;border-top:1px solid #dfe4ea;padding-top:6px;font-size:8.5px;color:#8a94a3;">
+      <span>Central Tools · Borrow / Return Report</span>
+      <span>ข้อมูลจากระบบ ณ ${reportText(summary.generatedAt)}</span>
+    </div>`;
+
+  page.querySelectorAll('th').forEach(el=>el.style.cssText+='border:1px solid #cfd9ea;padding:5px 4px;text-align:center;font-weight:700;');
+  page.querySelectorAll('td').forEach((el,i)=>el.style.cssText+='border:1px solid #dfe4ea;padding:5px 4px;vertical-align:top;word-break:break-word;'+(i%11===0?'text-align:center;':''));
+  return page;
+}
+async function exportBorrowReportPdf(){
+  const btn=document.getElementById('btnBorrowPdf');
+  const rows=getFilteredBorrows();
+  if(!rows.length){ showToast('ไม่มีข้อมูลตามตัวกรองปัจจุบันสำหรับสร้าง Report PDF','warn'); return; }
+  if(!window.html2canvas || !window.jspdf?.jsPDF){ showToast('โหลดโมดูล PDF ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้ว Refresh','warn'); return; }
+
+  const original=btn.innerHTML;
+  btn.disabled=true;
+  btn.innerHTML='กำลังสร้าง PDF...';
+  let host=null;
+  try{
+    if(document.fonts?.ready) await document.fonts.ready;
+    const active=rows.filter(x=>x.status==='Borrowed').length;
+    const overdue=rows.filter(isBorrowOverdue).length;
+    const returned=rows.filter(x=>x.status==='Returned').length;
+    const rowsPerPage=page=>page===1?11:15;
+    const pages=[];
+    let pos=0, pageNo=1;
+    while(pos<rows.length){
+      const size=rowsPerPage(pageNo);
+      pages.push(rows.slice(pos,pos+size));
+      pos+=size; pageNo++;
+    }
+    const generatedAt=new Date().toLocaleString('th-TH',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const summary={
+      total:rows.length, active, overdue, returned,
+      tab:borrowReportTabText(), dept:borrowState.dept, search:borrowState.search,
+      generatedAt, rowsPerPage:15
+    };
+
+    host=document.createElement('div');
+    host.setAttribute('aria-hidden','true');
+    host.style.cssText='position:fixed;left:-12000px;top:0;width:1120px;background:#fff;z-index:-9999;';
+    document.body.appendChild(host);
+
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+
+    let reportStartIndex=0;
+    for(let i=0;i<pages.length;i++){
+      const p=createBorrowReportPage(pages[i],i+1,pages.length,summary,reportStartIndex);
+      reportStartIndex += pages[i].length;
+      host.innerHTML=''; host.appendChild(p);
+      // ให้ browser คำนวณ layout ก่อน capture
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      const canvas=await html2canvas(p,{scale:1.45,useCORS:true,backgroundColor:'#ffffff',logging:false});
+      const img=canvas.toDataURL('image/jpeg',0.94);
+      if(i>0) pdf.addPage('a4','landscape');
+      pdf.addImage(img,'JPEG',0,0,297,210,undefined,'FAST');
+    }
+    const d=new Date(), pad=n=>String(n).padStart(2,'0');
+    const filename=`Borrow-Return-Report-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.pdf`;
+    pdf.save(filename);
+    showToast(`สร้าง Report PDF แล้ว ${rows.length} รายการ`);
+  }catch(err){
+    console.error('[BORROW PDF ERROR]',err);
+    showToast('สร้าง PDF ไม่สำเร็จ: '+(err?.message||err),'warn');
+  }finally{
+    if(host) host.remove();
+    btn.disabled=false;
+    btn.innerHTML=original;
+  }
+}
+
 function renderBorrowTable(){
   const rows = getFilteredBorrows();
   const totalPages = Math.max(1,Math.ceil(rows.length/borrowState.pageSize));
@@ -3230,6 +3397,7 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
   }
 });
 
+document.getElementById('btnBorrowPdf').addEventListener('click',exportBorrowReportPdf);
 document.getElementById('borrowSearch').addEventListener('input',e=>{borrowState.search=e.target.value.trim();borrowState.page=1;renderBorrowTable();});
 document.getElementById('borrowDeptFilter').addEventListener('change',e=>{borrowState.dept=e.target.value;borrowState.page=1;renderBorrowTable();});
 document.getElementById('btnBorrowClearFilter').addEventListener('click',()=>{borrowState.search='';borrowState.dept='';borrowState.page=1;document.getElementById('borrowSearch').value='';populateBorrowDeptOptions();renderBorrowTable();});
