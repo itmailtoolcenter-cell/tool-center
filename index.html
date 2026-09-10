@@ -2883,20 +2883,25 @@ function borrowReportNote(tx){
 }
 function createBorrowReportPage(rows, pageNo, totalPages, summary, startIndex){
   const page=document.createElement('section');
-  page.style.cssText=`width:1120px;height:792px;background:#fff;color:#111;padding:22px 26px 18px;box-sizing:border-box;font-family:'Sarabun',Arial,sans-serif;position:relative;overflow:hidden;`;
+  page.style.cssText=`width:1120px;height:792px;background:#fff;color:#18212f;padding:18px 20px 14px;box-sizing:border-box;font-family:'Sarabun',Arial,sans-serif;position:relative;overflow:hidden;`;
 
-  const fixedRows = 22;
+  const fixedRows = 16;
   const bodyRows=[];
   for(let i=0;i<fixedRows;i++){
     const tx=rows[i];
     if(tx){
       const period=borrowReportPeriod(tx.borrowed_at);
-      bodyRows.push(`<tr>
+      const overdue = tx.status==='Borrowed' && isBorrowOverdue(tx);
+      const noteParts=[];
+      if(overdue) noteParts.push('เกินกำหนด');
+      const normalNote=borrowReportNote(tx);
+      if(normalNote) noteParts.push(normalNote);
+      bodyRows.push(`<tr class="${overdue?'row-overdue':''}">
         <td class="c datecell"><b>${reportText(borrowReportDateOnly(tx.borrowed_at))}</b><div class="tiny">${reportText(borrowReportTimeOnly(tx.borrowed_at))}</div></td>
         <td class="c mark">${period==='AM'?'✓':''}</td>
         <td class="c mark">${period==='PM'?'✓':''}</td>
         <td class="asset">${reportText(tx.asset_code||tx.tool_no||'')}</td>
-        <td class="tool">${reportText(shortReportText(tx.tool_name||'',30))}</td>
+        <td class="tool">${reportText(shortReportText(tx.tool_name||'',31))}</td>
         <td class="dept">${reportText(shortReportText(tx.borrower_department||'',18))}</td>
         <td class="c mark"></td>
         <td class="c mark"></td>
@@ -2904,75 +2909,140 @@ function createBorrowReportPage(rows, pageNo, totalPages, summary, startIndex){
         <td class="person">${reportText(shortReportText(tx.issued_by||'',18))}</td>
         <td class="c datecell">${reportText(tx.returned_at?borrowReportDateOnly(tx.returned_at):'')}${tx.returned_at?`<div class="tiny">${reportText(borrowReportTimeOnly(tx.returned_at))}</div>`:''}</td>
         <td class="person">${reportText(shortReportText(tx.received_by||'',18))}</td>
-        <td class="note">${reportText(shortReportText(borrowReportNote(tx),36))}</td>
+        <td class="note">${reportText(shortReportText(noteParts.join(' / '),38))}</td>
       </tr>`);
     }else{
-      bodyRows.push(`<tr>${Array.from({length:13},()=>'<td></td>').join('')}</tr>`);
+      bodyRows.push(`<tr class="blank-row">${Array.from({length:13},()=>'<td>&nbsp;</td>').join('')}</tr>`);
     }
   }
 
+  const periodText = summary.periodStart && summary.periodEnd
+    ? (summary.periodStart===summary.periodEnd ? summary.periodStart : `${summary.periodStart} – ${summary.periodEnd}`)
+    : '-';
+
   page.innerHTML=`
     <style>
-      .fm-head{border:1.6px solid #111;border-bottom:0;text-align:center;position:relative;padding:3px 120px 2px;}
-      .fm-company{font-size:17px;font-weight:700;line-height:1.05;}
-      .fm-title{font-size:24px;font-weight:700;line-height:1.08;margin-top:2px;}
-      .fm-meta{position:absolute;right:8px;top:7px;text-align:right;font-size:8px;line-height:1.35;font-weight:500;}
-      .fm-filter{position:absolute;left:8px;top:7px;text-align:left;font-size:8px;line-height:1.35;color:#333;}
-      table.fm-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.4px;line-height:1.1;}
-      .fm-table th,.fm-table td{border:1px solid #111;padding:2px 3px;vertical-align:middle;box-sizing:border-box;}
-      .fm-table thead th{font-size:9.4px;font-weight:700;text-align:center;background:#fff;}
-      .fm-table thead tr:first-child th{height:31px;}
-      .fm-table thead tr:last-child th{height:23px;}
-      .fm-table tbody tr{height:20px;}
-      .fm-table td{font-size:8.2px;overflow:hidden;}
-      .fm-table .c{text-align:center;}.fm-table .mark{font-size:13px;font-weight:700;}
-      .fm-table .tiny{font-size:6.7px;line-height:1;color:#444;margin-top:1px;}
-      .fm-table .asset{font-family:Consolas,'Sarabun',sans-serif;font-size:7.7px;text-align:center;}
+      .doc-shell{height:100%;border:1.6px solid #203247;display:flex;flex-direction:column;background:#fff;}
+      .doc-header{display:grid;grid-template-columns:210px 1fr 235px;min-height:86px;border-bottom:1.6px solid #203247;}
+      .brand-block{display:flex;align-items:center;gap:10px;padding:12px 14px;border-right:1px solid #8290a0;}
+      .brand-mark{width:48px;height:48px;border:2px solid #234c82;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#234c82;font-size:17px;font-weight:800;letter-spacing:.5px;}
+      .brand-text b{display:block;font-size:11.5px;line-height:1.25;color:#17283d;}.brand-text span{display:block;font-size:8.2px;color:#5f6b7a;margin-top:2px;}
+      .title-block{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 12px;}
+      .title-block .org{font-size:12.5px;font-weight:600;color:#3a4655;margin-bottom:4px;}
+      .title-block .title{font-size:22px;font-weight:800;letter-spacing:.1px;color:#14263d;line-height:1.05;}
+      .title-block .sub{font-size:8.5px;color:#667384;margin-top:5px;}
+      .doc-meta{display:grid;grid-template-columns:86px 1fr;font-size:8.4px;border-left:1px solid #8290a0;}
+      .doc-meta div{padding:5px 7px;border-bottom:1px solid #c2c9d1;display:flex;align-items:center;}.doc-meta div:nth-last-child(-n+2){border-bottom:0;}
+      .doc-meta .k{font-weight:700;background:#f1f4f7;color:#31445c;border-right:1px solid #c2c9d1;}.doc-meta .v{font-weight:600;color:#1c2b3d;}
+      .report-band{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;border-bottom:1px solid #9aa5b2;background:#f7f9fb;}
+      .report-band .cell{padding:7px 9px;border-right:1px solid #c8cfd7;font-size:8.3px;line-height:1.35;}.report-band .cell:last-child{border-right:0;}
+      .report-band .label{display:block;font-size:7px;color:#788493;margin-bottom:1px;text-transform:uppercase;}.report-band b{font-size:9px;color:#1c2d42;}
+      .summary-strip{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1.4px solid #203247;}
+      .sum{padding:5px 8px;text-align:center;border-right:1px solid #c7ced6;background:#fff;}.sum:last-child{border-right:0;}
+      .sum .n{font-size:15px;font-weight:800;color:#183b67;line-height:1;}.sum .l{font-size:7px;color:#6e7b8a;margin-top:2px;}
+      table.fm-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;line-height:1.12;}
+      .fm-table th,.fm-table td{border-right:1px solid #74808d;border-bottom:1px solid #8994a0;padding:2px 3px;vertical-align:middle;box-sizing:border-box;}
+      .fm-table th:last-child,.fm-table td:last-child{border-right:0;}
+      .fm-table thead th{font-size:8.3px;font-weight:700;text-align:center;background:#e8edf3;color:#17283c;}
+      .fm-table thead tr:first-child th{height:26px;border-bottom:1px solid #8994a0;}
+      .fm-table thead tr:last-child th{height:20px;}
+      .fm-table tbody tr{height:21px;}
+      .fm-table tbody tr:nth-child(even){background:#fbfcfd;}
+      .fm-table tbody tr.row-overdue{background:#fff5f4;}
+      .fm-table td{font-size:7.7px;overflow:hidden;color:#202b37;}
+      .fm-table .c{text-align:center;}.fm-table .mark{font-size:11px;font-weight:800;color:#183b67;}
+      .fm-table .tiny{font-size:6.3px;line-height:1;color:#687585;margin-top:1px;}
+      .fm-table .asset{font-family:Consolas,'Sarabun',sans-serif;font-size:7.2px;text-align:center;font-weight:600;}
       .fm-table .tool,.fm-table .dept,.fm-table .person,.fm-table .note{word-break:break-word;}
-      .fm-rules{border:1.6px solid #111;border-top:0;padding:7px 10px 6px;min-height:80px;font-size:8.7px;line-height:1.45;}
-      .fm-rules-title{text-align:center;font-size:11.5px;font-weight:700;margin-bottom:4px;}
-      .fm-rule-row{display:flex;gap:5px;margin:1px 0;}.fm-rule-no{width:15px;flex:0 0 15px;text-align:right;font-weight:600;}
-      .fm-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px;font-size:7.6px;color:#333;}
+      .blank-row td{color:transparent;}
+      .lower-area{display:grid;grid-template-columns:1.45fr .95fr;border-top:1.5px solid #203247;min-height:111px;}
+      .rules{padding:7px 10px;border-right:1px solid #9ba6b2;}
+      .rules-title{font-size:9.2px;font-weight:800;color:#1b2d43;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+      .rules-title:before{content:'';width:4px;height:13px;background:#234c82;display:inline-block;}
+      .rule{display:flex;gap:5px;font-size:7.3px;line-height:1.35;margin:2px 0;color:#3d4856;}.rule-no{width:14px;flex:0 0 14px;text-align:right;font-weight:700;color:#213a59;}
+      .signatures{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+      .sig{padding:7px 9px;border-right:1px solid #c5ccd4;border-bottom:1px solid #c5ccd4;position:relative;}.sig:nth-child(2n){border-right:0;}.sig:nth-last-child(-n+2){border-bottom:0;}
+      .sig .role{font-size:7.1px;color:#687483;font-weight:600;}.sig .line{border-bottom:1px solid #5f6c7a;margin:14px 8px 2px;height:1px;}.sig .date{font-size:6.5px;color:#87919c;text-align:center;}
+      .doc-footer{margin-top:auto;height:22px;background:#203247;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 9px;font-size:6.8px;letter-spacing:.05px;}
     </style>
-    <div class="fm-head">
-      <div class="fm-filter"><b>ตัวกรอง</b><br>สถานะ: ${reportText(summary.tab)}<br>แผนก: ${reportText(summary.dept||'ทั้งหมด')}</div>
-      <div class="fm-company">บริษัท อาซีฟา จำกัด (มหาชน)</div>
-      <div class="fm-title">ใบเบิกเครื่องมือชั่วคราว</div>
-      <div class="fm-meta">REPORT PDF<br>หน้า ${pageNo} / ${totalPages}<br>${reportText(summary.generatedAt)}</div>
-    </div>
-    <table class="fm-table">
-      <colgroup>
-        <col style="width:5.5%"><col style="width:3.4%"><col style="width:3.4%"><col style="width:12.6%"><col style="width:13.2%"><col style="width:10.3%"><col style="width:6.3%"><col style="width:6.6%"><col style="width:9.3%"><col style="width:8.0%"><col style="width:5.4%"><col style="width:7.4%"><col style="width:8.6%">
-      </colgroup>
-      <thead>
-        <tr>
-          <th rowspan="2">ว/ด/ป<br>ที่เบิก</th>
-          <th colspan="2">ช่วงเวลา</th>
-          <th rowspan="2">รหัสทรัพย์สิน</th>
-          <th rowspan="2">รายการเครื่องมือ</th>
-          <th rowspan="2">แผนก</th>
-          <th colspan="2">ใช้งาน</th>
-          <th rowspan="2">ผู้เบิก</th>
-          <th rowspan="2">ผู้จ่าย</th>
-          <th rowspan="2">ว/ด/ป<br>ส่งคืน</th>
-          <th rowspan="2">ผู้รับคืน</th>
-          <th rowspan="2">หมายเหตุ</th>
-        </tr>
-        <tr>
-          <th>เช้า</th><th>บ่าย</th><th>ในบริษัท</th><th>นอกบริษัท</th>
-        </tr>
-      </thead>
-      <tbody>${bodyRows.join('')}</tbody>
-    </table>
-    <div class="fm-rules">
-      <div class="fm-rules-title">ข้อปฎิบัติในการเบิกยืมเครื่องมือจากหน่วยงานควบคุมทรัพย์สินฝ่ายผลิต</div>
-      <div class="fm-rule-row"><span class="fm-rule-no">1.</span><span>หน่วยงานควบคุมทรัพย์สินฝ่ายผลิต ส่วนกลางเปิดให้พนักงานเบิก - คืน เครื่องมือช่วงเช้า เวลา 9.00 น. ถึง 11.00 น. และช่วงบ่าย 15.00 น. ถึง 17.20 น. และต้องติดต่อเจ้าหน้าที่ดูแลทุกครั้ง</span></div>
-      <div class="fm-rule-row"><span class="fm-rule-no">2.</span><span>ให้พนักงานเช็คเครื่องมือกับผู้ดูแลทุกครั้ง ก่อนเบิกและก่อนคืนว่าอยุ่ในสภาพใช้งานได้ตามปกติ</span></div>
-      <div class="fm-rule-row"><span class="fm-rule-no">3.</span><span>พนักงานที่เบิกนำเครื่องมือมาคืนภายในวันกำหนดคืน</span></div>
-    </div>
-    <div class="fm-footer">
-      <span>ข้อมูลจากระบบ Central Tools · Borrow / Return</span>
-      <span>จำนวนรายการในรายงาน ${summary.total} รายการ</span>
+    <div class="doc-shell">
+      <div class="doc-header">
+        <div class="brand-block">
+          <div class="brand-mark">ASEFA</div>
+          <div class="brand-text"><b>บริษัท อาซีฟา จำกัด (มหาชน)</b><span>ระบบเครื่องมือส่วนกลาง · Central Tools</span></div>
+        </div>
+        <div class="title-block">
+          <div class="org">ฝ่ายผลิต · งานไฟฟ้า</div>
+          <div class="title">รายงานการเบิก–คืนเครื่องมือชั่วคราว</div>
+          <div class="sub">Temporary Tool Borrow / Return Report</div>
+        </div>
+        <div class="doc-meta">
+          <div class="k">รหัสเอกสาร</div><div class="v">FM-PMEP-022</div>
+          <div class="k">Revision</div><div class="v">00</div>
+          <div class="k">หน้า</div><div class="v">${pageNo} / ${totalPages}</div>
+          <div class="k">วันที่ออกรายงาน</div><div class="v">${reportText(summary.generatedAt)}</div>
+        </div>
+      </div>
+
+      <div class="report-band">
+        <div class="cell"><span class="label">ขอบเขตรายงาน</span><b>${reportText(summary.tab)}</b></div>
+        <div class="cell"><span class="label">แผนก</span><b>${reportText(summary.dept||'ทั้งหมด')}</b></div>
+        <div class="cell"><span class="label">ช่วงวันที่เบิก</span><b>${reportText(periodText)}</b></div>
+        <div class="cell"><span class="label">คำค้นหา</span><b>${reportText(summary.search||'-')}</b></div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="sum"><div class="n">${summary.total}</div><div class="l">รายการในรายงาน</div></div>
+        <div class="sum"><div class="n">${summary.active}</div><div class="l">กำลังยืม</div></div>
+        <div class="sum"><div class="n">${summary.overdue}</div><div class="l">เกินกำหนด</div></div>
+        <div class="sum"><div class="n">${summary.returned}</div><div class="l">คืนแล้ว</div></div>
+      </div>
+
+      <table class="fm-table">
+        <colgroup>
+          <col style="width:5.8%"><col style="width:3.3%"><col style="width:3.3%"><col style="width:11.7%"><col style="width:13.4%"><col style="width:9.0%"><col style="width:4.6%"><col style="width:4.8%"><col style="width:10.0%"><col style="width:8.4%"><col style="width:6.3%"><col style="width:8.1%"><col style="width:10.3%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th rowspan="2">วันที่ / เวลา<br>เบิก</th>
+            <th colspan="2">ช่วงเวลา</th>
+            <th rowspan="2">รหัสทรัพย์สิน /<br>Tool No.</th>
+            <th rowspan="2">รายการเครื่องมือ</th>
+            <th rowspan="2">แผนก</th>
+            <th colspan="2">สถานที่ใช้งาน</th>
+            <th rowspan="2">ผู้เบิก</th>
+            <th rowspan="2">ผู้จ่าย</th>
+            <th rowspan="2">วันที่ / เวลา<br>ส่งคืน</th>
+            <th rowspan="2">ผู้รับคืน</th>
+            <th rowspan="2">หมายเหตุ</th>
+          </tr>
+          <tr>
+            <th>เช้า</th><th>บ่าย</th><th>ใน</th><th>นอก</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows.join('')}</tbody>
+      </table>
+
+      <div class="lower-area">
+        <div class="rules">
+          <div class="rules-title">ข้อกำหนดการเบิก–คืนเครื่องมือ</div>
+          <div class="rule"><span class="rule-no">1.</span><span>ช่วงเวลาการเบิก–คืน: เวลา 09.00–11.00 น. และ 15.00–17.20 น. โดยติดต่อผู้ดูแลเครื่องมือทุกครั้ง</span></div>
+          <div class="rule"><span class="rule-no">2.</span><span>ผู้เบิกและผู้ดูแลต้องตรวจสอบสภาพเครื่องมือร่วมกันก่อนรับและก่อนคืน เพื่อยืนยันความพร้อมใช้งาน</span></div>
+          <div class="rule"><span class="rule-no">3.</span><span>ผู้เบิกต้องนำเครื่องมือกลับคืนภายในวันที่กำหนด และคืนกลับตำแหน่งจัดเก็บเดิมของเครื่องมือนั้น</span></div>
+          <div class="rule"><span class="rule-no">4.</span><span>กรณีชำรุด สูญหาย หรือพบความผิดปกติ ให้บันทึกหมายเหตุและแจ้งผู้รับผิดชอบทันที</span></div>
+        </div>
+        <div class="signatures">
+          <div class="sig"><div class="role">ผู้จัดทำรายงาน</div><div class="line"></div><div class="date">ลงชื่อ / วันที่</div></div>
+          <div class="sig"><div class="role">ผู้ตรวจสอบ</div><div class="line"></div><div class="date">ลงชื่อ / วันที่</div></div>
+          <div class="sig"><div class="role">ผู้รับผิดชอบเครื่องมือ</div><div class="line"></div><div class="date">ลงชื่อ / วันที่</div></div>
+          <div class="sig"><div class="role">ผู้อนุมัติ</div><div class="line"></div><div class="date">ลงชื่อ / วันที่</div></div>
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        <span>FM-PMEP-022 · CENTRAL TOOLS · BORROW / RETURN</span>
+        <span>เอกสารสร้างจากระบบอิเล็กทรอนิกส์ · จำนวน ${summary.total} รายการ</span>
+      </div>
     </div>`;
   return page;
 }
@@ -2991,7 +3061,7 @@ async function exportBorrowReportPdf(){
     const active=rows.filter(x=>x.status==='Borrowed').length;
     const overdue=rows.filter(isBorrowOverdue).length;
     const returned=rows.filter(x=>x.status==='Returned').length;
-    const rowsPerPage=()=>22;
+    const rowsPerPage=()=>16;
     const pages=[];
     let pos=0, pageNo=1;
     while(pos<rows.length){
@@ -3000,10 +3070,16 @@ async function exportBorrowReportPdf(){
       pos+=size; pageNo++;
     }
     const generatedAt=new Date().toLocaleString('th-TH',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const reportDates=rows
+      .map(x=>x.borrowed_at ? new Date(x.borrowed_at) : null)
+      .filter(d=>d && !Number.isNaN(d.getTime()))
+      .sort((a,b)=>a-b);
+    const periodStart=reportDates.length ? reportDates[0].toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const periodEnd=reportDates.length ? reportDates[reportDates.length-1].toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '';
     const summary={
       total:rows.length, active, overdue, returned,
       tab:borrowReportTabText(), dept:borrowState.dept, search:borrowState.search,
-      generatedAt, rowsPerPage:22
+      generatedAt, periodStart, periodEnd, rowsPerPage:16
     };
 
     host=document.createElement('div');
