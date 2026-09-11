@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบเครื่องมือส่วนกลาง · PART 1–2 + Master Data + PDF Report</title>
+<title>Center Tools · ระบบเครื่องมือส่วนกลาง</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -725,10 +725,94 @@ SECTION 13 : MASTER DATA
   .form-grid{grid-template-columns:1fr;}
   .detail-grid{grid-template-columns:1fr;}
 }
+
+
+/* =========================
+PART 3 : AUTH / LOGIN
+Incremental enhancement using Supabase Auth
+========================= */
+.app.auth-hidden{display:none!important;}
+.auth-gate{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:28px;background:linear-gradient(135deg,#eef3fb 0%,#f8fafc 55%,#eaf0f8 100%);
+}
+.auth-gate.hidden{display:none;}
+.auth-card{
+  width:min(430px,100%);background:#fff;border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 18px 55px rgba(15,27,45,.14);overflow:hidden;
+}
+.auth-brand{padding:26px 28px 18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--border);}
+.auth-brand-mark{
+  width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#5b9dff);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0;
+}
+.auth-brand b{display:block;font-size:17px;color:var(--navy-900);}
+.auth-brand span{display:block;margin-top:2px;font-size:12px;color:var(--text-sub);}
+.auth-body{padding:25px 28px 28px;}
+.auth-body h1{font-size:21px;margin:0 0 6px;color:var(--text-main);}
+.auth-body>p{font-size:13px;color:var(--text-sub);margin:0 0 20px;line-height:1.55;}
+.auth-field{margin-bottom:14px;}
+.auth-field label{display:block;font-size:12.5px;font-weight:600;color:var(--text-sub);margin-bottom:6px;}
+.auth-input-wrap{display:flex;align-items:center;border:1px solid var(--border);border-radius:10px;background:#fff;overflow:hidden;}
+.auth-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,111,237,.11);}
+.auth-input-wrap svg{width:17px;height:17px;color:var(--text-faint);margin-left:12px;flex-shrink:0;}
+.auth-input-wrap input{width:100%;border:0;outline:0;padding:11px 12px;font-size:14px;background:transparent;color:var(--text-main);}
+.auth-show-pass{border:0;background:transparent;color:var(--accent);font-size:11.5px;font-weight:600;padding:8px 12px;white-space:nowrap;}
+.auth-submit{width:100%;justify-content:center;margin-top:6px;min-height:43px;}
+.auth-error{display:none;margin:0 0 13px;padding:10px 12px;border-radius:9px;background:var(--red-bg);color:var(--red-fg);font-size:12.5px;line-height:1.45;}
+.auth-error.show{display:block;}
+.auth-note{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-faint);text-align:center;line-height:1.5;}
+.auth-loading{display:none;align-items:center;justify-content:center;gap:8px;color:var(--text-sub);font-size:12.5px;margin-top:11px;}
+.auth-loading.show{display:flex;}
+.auth-spinner{width:15px;height:15px;border:2px solid #dbe3f0;border-top-color:var(--accent);border-radius:50%;animation:authSpin .7s linear infinite;}
+@keyframes authSpin{to{transform:rotate(360deg)}}
+.user-chip{cursor:pointer;border-radius:10px;padding:5px 7px 5px 14px;transition:background .15s ease;}
+.user-chip:hover{background:#f6f8fb;}
+.auth-logout-btn{margin-left:4px;}
+.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px;}
+.account-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-card);}
+.account-card label{display:block;color:var(--text-faint);font-size:11.5px;margin-bottom:5px;}
+.account-card div{font-size:14px;font-weight:600;color:var(--text-main);word-break:break-word;}
+.account-actions{display:flex;gap:10px;flex-wrap:wrap;}
+@media(max-width:720px){.account-grid{grid-template-columns:1fr}.auth-gate{padding:16px}.auth-body,.auth-brand{padding-left:20px;padding-right:20px}}
+
 </style>
 </head>
 <body>
-<div class="app">
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-mark">CT</div>
+      <div><b>Center Tools</b><span>ระบบเครื่องมือส่วนกลาง</span></div>
+    </div>
+    <div class="auth-body">
+      <h1>ยินดีต้อนรับ</h1>
+      <p><strong>เข้าสู่ระบบ Center Tools</strong><br>กรุณาเข้าสู่ระบบด้วยบัญชีที่ได้รับอนุญาต</p>
+      <form id="loginForm" novalidate>
+        <div class="auth-error" id="loginError"></div>
+        <div class="auth-field">
+          <label for="loginEmail">อีเมล</label>
+          <div class="auth-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="m4 6 8 6 8-6"/></svg>
+            <input id="loginEmail" type="email" autocomplete="username" placeholder="name@company.com" required>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="loginPassword">รหัสผ่าน</label>
+          <div class="auth-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+            <button type="button" class="auth-show-pass" id="toggleLoginPassword">แสดง</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary auth-submit" id="loginBtn">เข้าสู่ระบบ</button>
+        <div class="auth-loading" id="authLoading"><span class="auth-spinner"></span><span>กำลังตรวจสอบบัญชี...</span></div>
+      </form>
+      <div class="auth-note">ไม่มีระบบสมัครสมาชิกจากหน้าเว็บ · บัญชีผู้ใช้สร้างโดยผู้ดูแลระบบเท่านั้น</div>
+    </div>
+  </div>
+</div>
+<div class="app auth-hidden" id="mainApp">
 
   <!-- =========================
   SECTION 01 : SIDEBAR
@@ -736,7 +820,7 @@ SECTION 13 : MASTER DATA
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="mark">CT</div>
-      <div class="txt"><b>Central Tools</b><span>ระบบเครื่องมือส่วนกลาง</span></div>
+      <div class="txt"><b>Center Tools</b><span>ระบบเครื่องมือส่วนกลาง</span></div>
     </div>
 
     <div class="nav-label">เมนูหลัก</div>
@@ -768,7 +852,7 @@ SECTION 13 : MASTER DATA
     <div class="nav-label">ระบบ</div>
     <a href="#" class="nav-item" data-menu="User">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
-      <span>User</span><span class="soon">เร็วๆ นี้</span>
+      <span>User</span>
     </a>
     <a href="#" class="nav-item" data-menu="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
@@ -776,8 +860,8 @@ SECTION 13 : MASTER DATA
     </a>
 
     <div class="sidebar-foot">
-      <b>PART 1–2 · Tool + Borrow + Master</b>
-      Tool Master + Borrow / Return<br>Employee / Department / Issuer Master
+      <b>PART 1–3 · Tool + Borrow + Login</b>
+      Tool Master + Borrow / Return<br>Master Data + Supabase Auth
     </div>
   </aside>
 
@@ -795,10 +879,13 @@ SECTION 13 : MASTER DATA
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
           <span class="dot"></span>
         </button>
-        <div class="user-chip">
-          <div class="avatar">พจ</div>
-          <div class="info"><b>พงศ์ จันทร์เพ็ญ</b><span>แผนกเครื่องมือส่วนกลาง</span></div>
+        <div class="user-chip" id="topbarUserChip" title="บัญชีผู้ใช้">
+          <div class="avatar" id="topbarUserAvatar">U</div>
+          <div class="info"><b id="topbarUserName">กำลังโหลด...</b><span id="topbarUserRole">ผู้ใช้งานระบบ</span></div>
         </div>
+        <button class="icon-btn auth-logout-btn" id="btnTopbarLogout" title="ออกจากระบบ">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg>
+        </button>
       </div>
     </header>
 
@@ -1013,6 +1100,27 @@ SECTION 13 : MASTER DATA
         <div class="table-footer">
           <div class="count" id="masterResultCount"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- =========================
+    PART 3 : USER / ACCOUNT
+    ========================= -->
+    <div id="viewUser" style="display:none;">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">PART 3 · USER ACCOUNT</div>
+          <h1>บัญชีผู้ใช้งาน</h1>
+        </div>
+      </div>
+      <div class="account-grid">
+        <div class="account-card"><label>ชื่อผู้ใช้งาน</label><div id="accountFullName">-</div></div>
+        <div class="account-card"><label>อีเมล</label><div id="accountEmail">-</div></div>
+        <div class="account-card"><label>แผนก / หน่วยงาน</label><div id="accountDepartment">-</div></div>
+        <div class="account-card"><label>สิทธิ์ระบบ</label><div id="accountRole">-</div></div>
+      </div>
+      <div class="account-actions">
+        <button class="btn-danger" id="btnAccountLogout">ออกจากระบบ</button>
       </div>
     </div>
 
@@ -1627,6 +1735,137 @@ SECTION 07b : SUPABASE CLIENT
 const SUPABASE_URL = 'https://ppsjpmvpxoydzmstupyr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Q_wyuGzjURTKdoxYZtjbxQ_LF_k9N6a';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+/* =========================
+PART 3 : SUPABASE AUTH
+========================= */
+let currentAuthUser = null;
+let currentAppProfile = null;
+let authAppReady = false;
+
+const ROLE_LABELS = {
+  admin:'ผู้ดูแลระบบ',
+  staff:'เจ้าหน้าที่',
+  viewer:'ผู้ดูข้อมูล'
+};
+
+function authInitials(name,email){
+  const value=String(name||email||'U').trim();
+  if(!value) return 'U';
+  const words=value.split(/\s+/).filter(Boolean);
+  if(words.length>=2) return (words[0][0]+words[1][0]).toUpperCase();
+  return value.slice(0,2).toUpperCase();
+}
+function setLoginError(message=''){
+  const el=document.getElementById('loginError');
+  if(!el) return;
+  el.textContent=message;
+  el.classList.toggle('show',!!message);
+}
+function setAuthLoading(isLoading){
+  const btn=document.getElementById('loginBtn');
+  const loading=document.getElementById('authLoading');
+  if(btn) btn.disabled=!!isLoading;
+  if(loading) loading.classList.toggle('show',!!isLoading);
+}
+function showLoginScreen(message=''){
+  authAppReady=false;
+  currentAuthUser=null;
+  currentAppProfile=null;
+  document.getElementById('authGate')?.classList.remove('hidden');
+  document.getElementById('mainApp')?.classList.add('auth-hidden');
+  setLoginError(message);
+  const pwd=document.getElementById('loginPassword');
+  if(pwd) pwd.value='';
+}
+function showAuthenticatedApp(){
+  document.getElementById('authGate')?.classList.add('hidden');
+  document.getElementById('mainApp')?.classList.remove('auth-hidden');
+}
+async function fetchCurrentAppProfile(user){
+  if(!user) return null;
+  const fallback={
+    user_id:user.id,
+    email:user.email||'',
+    full_name:user.user_metadata?.full_name || (user.email?user.email.split('@')[0]:'ผู้ใช้งาน'),
+    department:user.user_metadata?.department || '',
+    role:'staff',
+    is_active:true
+  };
+  try{
+    const {data,error}=await sb.from('app_users')
+      .select('user_id,email,full_name,department,role,is_active')
+      .eq('user_id',user.id)
+      .maybeSingle();
+    if(error){
+      console.warn('โหลด app_users ไม่สำเร็จ ใช้ข้อมูล Auth ชั่วคราว',error);
+      return fallback;
+    }
+    return data ? {...fallback,...data} : fallback;
+  }catch(err){
+    console.warn('โหลด profile ไม่สำเร็จ',err);
+    return fallback;
+  }
+}
+function updateCurrentUserUI(){
+  const p=currentAppProfile||{};
+  const email=currentAuthUser?.email||p.email||'';
+  const name=p.full_name||email||'ผู้ใช้งาน';
+  const roleLabel=ROLE_LABELS[p.role]||'ผู้ใช้งานระบบ';
+  const dept=p.department||'';
+  const avatar=document.getElementById('topbarUserAvatar');
+  if(avatar) avatar.textContent=authInitials(name,email);
+  const nameEl=document.getElementById('topbarUserName');
+  if(nameEl) nameEl.textContent=name;
+  const roleEl=document.getElementById('topbarUserRole');
+  if(roleEl) roleEl.textContent=dept ? `${dept} · ${roleLabel}` : roleLabel;
+  const fields={accountFullName:name,accountEmail:email||'-',accountDepartment:dept||'-',accountRole:roleLabel};
+  Object.entries(fields).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.textContent=val;});
+}
+async function enterAuthenticatedApp(session){
+  if(!session?.user){ showLoginScreen(); return; }
+  currentAuthUser=session.user;
+  currentAppProfile=await fetchCurrentAppProfile(session.user);
+  if(currentAppProfile && currentAppProfile.is_active===false){
+    await sb.auth.signOut();
+    showLoginScreen('บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
+    return;
+  }
+  updateCurrentUserUI();
+  showAuthenticatedApp();
+  await bootAppData();
+  authAppReady=true;
+}
+async function handleLogout(){
+  try{
+    await sb.auth.signOut();
+  }catch(err){console.error('Sign out error',err);}
+  toolData=[];
+  if(typeof borrowTransactions!=='undefined') borrowTransactions=[];
+  showLoginScreen();
+}
+async function initAuthGate(){
+  setAuthLoading(true);
+  const {data,error}=await sb.auth.getSession();
+  setAuthLoading(false);
+  if(error){
+    console.error('Auth session error',error);
+    showLoginScreen('ไม่สามารถตรวจสอบสถานะการเข้าสู่ระบบได้');
+    return;
+  }
+  if(data?.session) await enterAuthenticatedApp(data.session);
+  else showLoginScreen();
+
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='SIGNED_OUT') showLoginScreen();
+    if(event==='USER_UPDATED' && session?.user){
+      currentAuthUser=session.user;
+      fetchCurrentAppProfile(session.user).then(p=>{currentAppProfile=p;updateCurrentUserUI();});
+    }
+  });
+}
+
 
 async function fetchToolsFromSupabase(){
   const { data, error } = await sb.from('tools').select('*').order('created_at', { ascending: true });
@@ -2437,11 +2676,13 @@ function switchMainView(view){
   document.getElementById('viewToolMaster').style.display = (view === 'toolmaster') ? '' : 'none';
   document.getElementById('viewBorrowReturn').style.display = (view === 'borrowreturn') ? '' : 'none';
   document.getElementById('viewMasterData').style.display = (view === 'masterdata') ? '' : 'none';
+  document.getElementById('viewUser').style.display = (view === 'user') ? '' : 'none';
   document.getElementById('viewSettings').style.display = (view === 'settings') ? '' : 'none';
   document.querySelectorAll('.nav-item[data-menu]').forEach(el=>{
     const isActive = (view === 'toolmaster' && el.dataset.menu === 'Tool Master') ||
                       (view === 'borrowreturn' && el.dataset.menu === 'Borrow / Return') ||
                       (view === 'masterdata' && el.dataset.menu === 'Master Data') ||
+                      (view === 'user' && el.dataset.menu === 'User') ||
                       (view === 'settings' && el.dataset.menu === 'Settings');
     el.classList.toggle('active', isActive);
   });
@@ -2452,6 +2693,7 @@ document.querySelectorAll('.nav-item[data-menu]').forEach(item=>{
     if(item.dataset.menu === 'Tool Master'){ switchMainView('toolmaster'); return; }
     if(item.dataset.menu === 'Borrow / Return'){ switchMainView('borrowreturn'); await loadBorrowView(); return; }
     if(item.dataset.menu === 'Master Data'){ switchMainView('masterdata'); await fetchMasterData(false); refreshMasterView(); return; }
+    if(item.dataset.menu === 'User'){ switchMainView('user'); updateCurrentUserUI(); return; }
     if(item.dataset.menu === 'Settings'){ switchMainView('settings'); return; }
     showToast(`"${item.dataset.menu}" Feature นี้จะพัฒนาใน Part ถัดไป`, 'warn');
   });
@@ -4132,10 +4374,44 @@ document.getElementById('btnBorrowClearFilter').addEventListener('click',()=>{bo
 document.getElementById('borrowTabs').addEventListener('click',e=>{const b=e.target.closest('[data-btab]');if(!b)return;document.querySelectorAll('.borrow-tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');borrowState.tab=b.dataset.btab;borrowState.page=1;renderBorrowTable();});
 document.getElementById('borrowPagination').addEventListener('click',e=>{const b=e.target.closest('[data-bpg]');if(!b||b.disabled)return;const v=b.dataset.bpg;const total=Math.max(1,Math.ceil(getFilteredBorrows().length/borrowState.pageSize));if(v==='prev')borrowState.page=Math.max(1,borrowState.page-1);else if(v==='next')borrowState.page=Math.min(total,borrowState.page+1);else borrowState.page=Number(v);renderBorrowTable();});
 
+
+/* =========================
+PART 3 : AUTH EVENTS
+========================= */
+document.getElementById('loginForm').addEventListener('submit',async (e)=>{
+  e.preventDefault();
+  setLoginError('');
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  if(!email || !password){ setLoginError('กรุณากรอกอีเมลและรหัสผ่าน'); return; }
+  setAuthLoading(true);
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    await enterAuthenticatedApp(data.session);
+  }catch(err){
+    console.error('Login error',err);
+    const msg=String(err?.message||'');
+    if(/invalid login credentials/i.test(msg)) setLoginError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    else if(/email not confirmed/i.test(msg)) setLoginError('บัญชียังไม่ได้ยืนยันอีเมล กรุณาติดต่อผู้ดูแลระบบ');
+    else setLoginError('เข้าสู่ระบบไม่สำเร็จ: '+(msg||'กรุณาลองใหม่'));
+  }finally{ setAuthLoading(false); }
+});
+document.getElementById('toggleLoginPassword').addEventListener('click',()=>{
+  const input=document.getElementById('loginPassword');
+  const btn=document.getElementById('toggleLoginPassword');
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  btn.textContent=show?'ซ่อน':'แสดง';
+});
+document.getElementById('btnTopbarLogout').addEventListener('click',handleLogout);
+document.getElementById('btnAccountLogout').addEventListener('click',handleLogout);
+document.getElementById('topbarUserChip').addEventListener('click',()=>{switchMainView('user');updateCurrentUserUI();});
+
 /* =========================
    INIT
 ========================= */
-async function bootApp(){
+async function bootAppData(){
   switchMainView('toolmaster');
   document.getElementById('kpiGrid').innerHTML = '<div style="padding:20px;color:var(--text-sub);font-size:13px;">กำลังโหลดข้อมูลจาก Supabase...</div>';
 
@@ -4155,7 +4431,7 @@ async function bootApp(){
     showToast('ยังไม่มีข้อมูลเครื่องมือ หรือเชื่อมต่อ Supabase ไม่สำเร็จ', 'warn');
   }
 }
-bootApp();
+initAuthGate();
 </script>
 </body>
 </html>
