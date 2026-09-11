@@ -538,6 +538,29 @@ SECTION 12 : PART 2 · BORROW / RETURN
 .borrow-overdue{color:var(--red-fg);font-weight:700;}
 .borrow-muted{color:var(--text-faint);font-size:11.8px;}
 .borrow-modal-box{width:720px;}
+/* Borrow type · incremental enhancement */
+.borrow-type-segment{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px;background:#eef1f5;
+  border:1px solid var(--border);border-radius:10px;
+}
+.borrow-type-option{position:relative;cursor:pointer;}
+.borrow-type-option input{position:absolute;opacity:0;pointer-events:none;}
+.borrow-type-option span{
+  display:flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;
+  border:1px solid transparent;border-radius:8px;font-size:13px;font-weight:700;
+  color:var(--text-sub);background:transparent;transition:.15s ease;
+}
+.borrow-type-option input:checked + span{
+  background:#fff;color:var(--accent);border-color:#c7d8fc;box-shadow:var(--shadow-card);
+}
+.borrow-permanent-notice{
+  display:none;border:1px solid #f1d5b5;background:#fffaf4;color:#8b5d12;
+  border-radius:10px;padding:13px 14px;font-size:13px;font-weight:600;line-height:1.55;
+}
+.borrow-temporary-fields{display:contents;}
+.borrow-type-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+.borrow-type-badge.temporary{background:var(--blue-bg);color:var(--blue-fg);}
+.borrow-type-badge.permanent{background:var(--gray-bg);color:var(--gray-fg);}
 .return-summary{
   background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:14px 16px;margin-bottom:16px;
   display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;
@@ -829,6 +852,11 @@ SECTION 13 : MASTER DATA
           <input id="borrowSearch" type="text" placeholder="ค้นหาเลขที่ยืม / Tool No. / เครื่องมือ / ผู้ยืม / แผนก">
         </div>
         <select id="borrowDeptFilter" class="filter-select"><option value="">แผนก : ทั้งหมด</option></select>
+        <select id="borrowTypeFilter" class="filter-select">
+          <option value="">ประเภทการยืม : ทั้งหมด</option>
+          <option value="temporary">ชั่วคราว</option>
+          <option value="permanent">ถาวร</option>
+        </select>
         <button class="btn-ghost" id="btnBorrowClearFilter">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
           ล้างตัวกรอง
@@ -843,7 +871,7 @@ SECTION 13 : MASTER DATA
         <div class="table-scroll">
           <table style="min-width:1120px;">
             <thead><tr>
-              <th>เลขที่ยืม</th><th>เครื่องมือ</th><th>ผู้ยืม</th><th>แผนก</th>
+              <th>เลขที่ยืม</th><th>ประเภท</th><th>เครื่องมือ</th><th>ผู้ยืม</th><th>แผนก</th>
               <th>วันที่ยืม</th><th>กำหนดคืน</th><th>สถานะ</th><th>ผู้จ่าย</th><th>Action</th>
             </tr></thead>
             <tbody id="borrowTableBody"></tbody>
@@ -1188,6 +1216,23 @@ PART 2 : BORROW MODAL
       <form id="borrowForm">
         <div class="form-grid">
           <div class="form-field full">
+            <label>ประเภทการยืม <span class="req">*</span></label>
+            <div class="borrow-type-segment" role="radiogroup" aria-label="ประเภทการยืม">
+              <label class="borrow-type-option">
+                <input type="radio" name="b_borrow_type" value="temporary" checked>
+                <span>ยืมชั่วคราว</span>
+              </label>
+              <label class="borrow-type-option">
+                <input type="radio" name="b_borrow_type" value="permanent">
+                <span>ยืมถาวร</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-field full borrow-permanent-notice" id="borrowPermanentNotice">
+            แบบฟอร์มการยืมถาวรอยู่ระหว่างการพัฒนา
+          </div>
+          <div id="temporaryBorrowFields" class="borrow-temporary-fields">
+          <div class="form-field full">
             <label>เลือกเครื่องมือ <span class="req">*</span></label>
             <div class="tool-autocomplete">
               <input type="text" id="b_tool_search" autocomplete="off" placeholder="พิมพ์ค้นหา Tool No. / Asset Code / ชื่อเครื่องมือ" required>
@@ -1284,6 +1329,7 @@ PART 2 : BORROW MODAL
           <div class="form-field full">
             <label>หมายเหตุ</label>
             <textarea id="b_note" placeholder="รายละเอียดเพิ่มเติม"></textarea>
+          </div>
           </div>
         </div>
       </form>
@@ -2655,7 +2701,7 @@ document.getElementById('confirmEmployeeImport').addEventListener('click',confir
 SECTION 12 : PART 2 · BORROW / RETURN LOGIC
 ========================= */
 let borrowData = [];
-const borrowState = { tab:'active', search:'', dept:'', page:1, pageSize:8, ready:false };
+const borrowState = { tab:'active', search:'', dept:'', type:'', page:1, pageSize:8, ready:false };
 
 function toLocalInputValue(dateLike){
   const d = dateLike ? new Date(dateLike) : new Date();
@@ -2677,6 +2723,27 @@ function borrowStatusBadge(tx){
   if(tx.status === 'Cancelled') return '<span class="badge gray"><span class="dot"></span>ยกเลิก</span>';
   if(isBorrowOverdue(tx)) return '<span class="badge red"><span class="dot"></span>เกินกำหนด</span>';
   return '<span class="badge orange"><span class="dot"></span>กำลังยืม</span>';
+}
+function normalizeBorrowType(tx){
+  return tx?.borrow_type === 'permanent' ? 'permanent' : 'temporary';
+}
+function borrowTypeBadge(tx){
+  const type=normalizeBorrowType(tx);
+  return type==='permanent'
+    ? '<span class="borrow-type-badge permanent">ถาวร</span>'
+    : '<span class="borrow-type-badge temporary">ชั่วคราว</span>';
+}
+function getSelectedBorrowType(){
+  return document.querySelector('input[name="b_borrow_type"]:checked')?.value || 'temporary';
+}
+function updateBorrowTypeUI(){
+  const type=getSelectedBorrowType();
+  const temporaryFields=document.getElementById('temporaryBorrowFields');
+  const permanentNotice=document.getElementById('borrowPermanentNotice');
+  const saveBtn=document.getElementById('saveBorrowBtn');
+  if(temporaryFields) temporaryFields.style.display = type==='temporary' ? 'contents' : 'none';
+  if(permanentNotice) permanentNotice.style.display = type==='permanent' ? 'block' : 'none';
+  if(saveBtn) saveBtn.disabled = type==='permanent';
 }
 function makeBorrowNo(){
   const d = new Date(), pad=n=>String(n).padStart(2,'0');
@@ -2826,7 +2893,8 @@ function getFilteredBorrows(){
       (borrowState.tab==='returned' && tx.status==='Returned');
     const searchOk = !q || ['borrow_no','tool_no','tool_name','asset_code','borrower_name','borrower_code','borrower_department','issued_by'].some(k=>String(tx[k]||'').toLowerCase().includes(q));
     const deptOk = !borrowState.dept || tx.borrower_department===borrowState.dept;
-    return tabOk && searchOk && deptOk;
+    const typeOk = !borrowState.type || normalizeBorrowType(tx)===borrowState.type;
+    return tabOk && searchOk && deptOk && typeOk;
   });
 }
 /* =========================
@@ -3302,6 +3370,7 @@ function renderBorrowTable(){
       const dueClass=isBorrowOverdue(tx)?'borrow-overdue':'';
       return `<tr>
         <td><b>${escapeHtml(tx.borrow_no||'-')}</b><div class="borrow-muted">${escapeHtml(tx.id ? String(tx.id).slice(0,8):'')}</div></td>
+        <td>${borrowTypeBadge(tx)}</td>
         <td class="tool-name-cell"><b>${escapeHtml(tx.tool_name||'-')}</b><span>${escapeHtml(tx.tool_no||'-')} ${tx.asset_code?'· '+escapeHtml(tx.asset_code):''}</span></td>
         <td><b>${escapeHtml(tx.borrower_name||'-')}</b>${tx.borrower_code?`<div class="borrow-muted">${escapeHtml(tx.borrower_code)}</div>`:''}</td>
         <td>${escapeHtml(tx.borrower_department||'-')}</td>
@@ -3333,7 +3402,7 @@ function refreshBorrowView(){
   populateBorrowDeptOptions(); renderBorrowKpis(); renderBorrowTable();
 }
 async function loadBorrowView(){
-  document.getElementById('borrowTableBody').innerHTML='<tr><td colspan="9" style="padding:28px;text-align:center;color:var(--text-sub);">กำลังโหลดข้อมูลยืม–คืนจาก Supabase...</td></tr>';
+  document.getElementById('borrowTableBody').innerHTML='<tr><td colspan="10" style="padding:28px;text-align:center;color:var(--text-sub);">กำลังโหลดข้อมูลยืม–คืนจาก Supabase...</td></tr>';
   borrowData = await fetchBorrowTransactions();
   if(!masterState.ready) await fetchMasterData(false);
   refreshBorrowView();
@@ -3343,6 +3412,9 @@ function openBorrowModal(){
   if(!borrowState.ready){ showToast('กรุณาตั้งค่าตาราง borrow_transactions ใน Supabase ก่อน', 'warn'); return; }
   if(!masterState.ready){ showToast('กรุณาตั้งค่า Employee / Department Master ก่อนบันทึกการยืม', 'warn'); return; }
   document.getElementById('borrowForm').reset(); clearBorrowerSelection();
+  const defaultType=document.querySelector('input[name="b_borrow_type"][value="temporary"]');
+  if(defaultType) defaultType.checked=true;
+  updateBorrowTypeUI();
   document.getElementById('b_borrowed_at').value=toLocalInputValue();
   const due=new Date(Date.now()+24*60*60*1000);
   document.getElementById('b_due_at').value=toLocalInputValue(due);
@@ -3499,7 +3571,11 @@ document.getElementById('closeReturnModal').addEventListener('click',closeReturn
 document.getElementById('cancelReturnModal').addEventListener('click',closeReturnModal);
 document.getElementById('returnBackdrop').addEventListener('click',closeReturnModal);
 
+document.querySelectorAll('input[name="b_borrow_type"]').forEach(r=>r.addEventListener('change',updateBorrowTypeUI));
+
 document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
+  const borrowType=getSelectedBorrowType();
+  if(borrowType==='permanent'){ showToast('แบบฟอร์มการยืมถาวรอยู่ระหว่างการพัฒนา','warn'); return; }
   const toolId=document.getElementById('b_tool_id').value;
   const employeeId=document.getElementById('b_employee_id').value;
   const borrowerName=document.getElementById('b_borrower_name').value.trim();
@@ -3524,7 +3600,7 @@ document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
     const issuerSig=await uploadBorrowAttachment(issuerBlob,borrowNo,'png'); if(issuerSig.path)uploadedPaths.push(issuerSig.path);
 
     const tx={
-      borrow_no:borrowNo, tool_id:tool.id, tool_no:tool.tool_no||'', asset_code:tool.asset_code||'', tool_name:tool.tool_name||'',
+      borrow_no:borrowNo, borrow_type:borrowType, tool_id:tool.id, tool_no:tool.tool_no||'', asset_code:tool.asset_code||'', tool_name:tool.tool_name||'',
       borrower_employee_id:employeeId, issuer_employee_id:issuerEmployeeId,
       borrower_code:document.getElementById('b_borrower_code').value.trim(), borrower_name:borrowerName, borrower_department:dept,
       borrower_contact:document.getElementById('b_contact').value.trim(), borrowed_at:new Date(borrowedAt).toISOString(),
@@ -3697,7 +3773,8 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
 document.getElementById('btnBorrowPdf').addEventListener('click',exportBorrowReportPdf);
 document.getElementById('borrowSearch').addEventListener('input',e=>{borrowState.search=e.target.value.trim();borrowState.page=1;renderBorrowTable();});
 document.getElementById('borrowDeptFilter').addEventListener('change',e=>{borrowState.dept=e.target.value;borrowState.page=1;renderBorrowTable();});
-document.getElementById('btnBorrowClearFilter').addEventListener('click',()=>{borrowState.search='';borrowState.dept='';borrowState.page=1;document.getElementById('borrowSearch').value='';populateBorrowDeptOptions();renderBorrowTable();});
+document.getElementById('borrowTypeFilter').addEventListener('change',e=>{borrowState.type=e.target.value;borrowState.page=1;renderBorrowTable();});
+document.getElementById('btnBorrowClearFilter').addEventListener('click',()=>{borrowState.search='';borrowState.dept='';borrowState.type='';borrowState.page=1;document.getElementById('borrowSearch').value='';document.getElementById('borrowTypeFilter').value='';populateBorrowDeptOptions();renderBorrowTable();});
 document.getElementById('borrowTabs').addEventListener('click',e=>{const b=e.target.closest('[data-btab]');if(!b)return;document.querySelectorAll('.borrow-tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');borrowState.tab=b.dataset.btab;borrowState.page=1;renderBorrowTable();});
 document.getElementById('borrowPagination').addEventListener('click',e=>{const b=e.target.closest('[data-bpg]');if(!b||b.disabled)return;const v=b.dataset.bpg;const total=Math.max(1,Math.ceil(getFilteredBorrows().length/borrowState.pageSize));if(v==='prev')borrowState.page=Math.max(1,borrowState.page-1);else if(v==='next')borrowState.page=Math.min(total,borrowState.page+1);else borrowState.page=Number(v);renderBorrowTable();});
 
