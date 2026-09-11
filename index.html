@@ -600,6 +600,52 @@ SECTION 12 : PART 2 · BORROW / RETURN
 .sig-clear:hover{background:var(--red-bg);color:var(--red-fg);border-color:#f3c9c6;}
 
 
+/* PART 2 · Transaction Report Preview (incremental enhancement) */
+.borrow-action-btn.report{padding:7px 9px;border-color:#d6deea;background:#fff;color:var(--navy-700);}
+.borrow-action-btn.report:hover{background:#f5f7fb;border-color:#bdc8d8;}
+.transaction-report-modal{width:980px;max-width:96vw;}
+.transaction-report-modal .modal-body{background:#e9edf3;padding:18px;}
+.transaction-report-preview{max-height:72vh;overflow:auto;display:flex;justify-content:center;align-items:flex-start;}
+.transaction-report-paper{
+  width:210mm;min-height:297mm;background:#fff;color:#000;padding:10mm 12mm;
+  box-shadow:0 2px 16px rgba(16,24,40,.14);font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',sans-serif;
+  font-size:16px;line-height:1.25;
+}
+.transaction-report-paper *{box-sizing:border-box;}
+.trp-header{text-align:center;border-bottom:2px solid #000;padding-bottom:4mm;margin-bottom:5mm;}
+.trp-company{font-size:22px;font-weight:700;line-height:1.15;}
+.trp-title{font-size:24px;font-weight:700;line-height:1.15;margin-top:1mm;}
+.trp-meta{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #000;margin-bottom:4mm;}
+.trp-meta .cell{padding:2mm 3mm;border-right:1px solid #000;min-height:11mm;}
+.trp-meta .cell:last-child{border-right:none;}
+.trp-label{font-size:13px;color:#333;margin-bottom:.5mm;}
+.trp-value{font-size:17px;font-weight:700;word-break:break-word;}
+.trp-section{margin-top:4mm;break-inside:avoid;}
+.trp-section-title{font-size:18px;font-weight:700;border-bottom:1.5px solid #000;padding-bottom:1mm;margin-bottom:2mm;}
+.trp-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #000;border-left:1px solid #000;}
+.trp-field{min-height:14mm;padding:2mm 3mm;border-right:1px solid #000;border-bottom:1px solid #000;}
+.trp-field.full{grid-column:1/-1;}
+.trp-field .trp-value{font-weight:600;font-size:16px;}
+.trp-photo-wrap{display:grid;grid-template-columns:85mm 1fr;gap:5mm;align-items:start;}
+.trp-photo-box{height:62mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;}
+.trp-photo-box img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;}
+.trp-empty-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#555;font-size:16px;padding:4mm;}
+.trp-signatures{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:2mm;}
+.trp-sign-card{border:1px solid #000;min-height:48mm;padding:2mm 3mm;text-align:center;display:flex;flex-direction:column;}
+.trp-sign-role{font-weight:700;font-size:16px;margin-bottom:1mm;}
+.trp-sign-image{height:27mm;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.trp-sign-image img{max-width:100%;max-height:100%;object-fit:contain;}
+.trp-sign-name{border-top:1px solid #000;margin-top:auto;padding-top:1mm;font-size:15px;}
+.trp-return-sign{margin-top:4mm;max-width:50%;}
+.trp-footer{margin-top:5mm;border-top:1px solid #000;padding-top:2mm;text-align:center;font-size:13px;color:#333;}
+@media(max-width:900px){
+  .transaction-report-paper{width:100%;min-height:auto;padding:18px;font-size:14px;}
+  .trp-photo-wrap{grid-template-columns:1fr;}
+  .trp-signatures{grid-template-columns:1fr;}
+  .trp-return-sign{max-width:100%;}
+}
+
+
 /* =========================
 SECTION 13 : MASTER DATA
 ========================= */
@@ -1377,6 +1423,13 @@ PART 2 : BORROW MODAL
           <label>หมายเหตุตอนคืน</label>
           <textarea id="r_return_note" placeholder="เช่น ตรวจสอบแล้วใช้งานปกติ / พบความเสียหาย..."></textarea>
         </div>
+        <div class="form-field full">
+          <div class="signature-card">
+            <div class="sig-title"><span>ลายเซ็นผู้รับคืน</span><button type="button" class="sig-clear" id="clearReceiverSig">ล้างลายเซ็น</button></div>
+            <canvas id="receiverSignature" class="signature-pad" width="700" height="180"></canvas>
+            <div class="signature-hint">ไม่บังคับในข้อมูลเก่า · หากเซ็น ระบบจะผูกลายเซ็นกับ Transaction นี้โดยตรง</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1461,6 +1514,24 @@ PART 2 : BORROW MODAL
     <div class="modal-head"><h3 id="departmentModalTitle">เพิ่มแผนก</h3><button class="close-btn" id="closeDepartmentModal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body"><input type="hidden" id="d_id"><div class="form-grid" style="grid-template-columns:1fr;"><div class="form-field"><label>ชื่อแผนก <span class="req">*</span></label><input id="d_name" placeholder="เช่น AMS1"></div><div class="form-field" style="display:none;"><label>สถานะ</label><select id="d_active"><option value="true" selected>ใช้งาน</option></select></div></div></div>
     <div class="modal-foot"><button class="btn-ghost" id="cancelDepartmentModal">ยกเลิก</button><button class="btn-primary" id="saveDepartmentBtn">บันทึกข้อมูล</button></div>
+  </div>
+</div>
+
+<!-- PART 2 · TRANSACTION REPORT PREVIEW MODAL -->
+<div class="modal-wrap" id="transactionReportModal">
+  <div class="modal-backdrop" id="transactionReportBackdrop"></div>
+  <div class="modal-box transaction-report-modal">
+    <div class="modal-head">
+      <h3>Report รายการยืม–คืน</h3>
+      <button class="close-btn" id="closeTransactionReport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="transaction-report-preview" id="transactionReportPreview"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="closeTransactionReport2">ปิด</button>
+      <button class="btn-primary" id="printTransactionReport">Print / Save PDF</button>
+    </div>
   </div>
 </div>
 
@@ -2758,7 +2829,7 @@ async function getNextBorrowNo(borrowType){
 
 
 let selectedBorrowPhoto = null;
-const signatureState = { borrower:false, issuer:false };
+const signatureState = { borrower:false, issuer:false, receiver:false };
 
 function getAvailableBorrowTools(){
   return toolData.filter(t=>t.status==='Available').sort((a,b)=>String(a.tool_no||'').localeCompare(String(b.tool_no||'')));
@@ -3384,7 +3455,7 @@ function renderBorrowTable(){
         <td class="${dueClass}">${tx.due_at?fmtDateTime(tx.due_at):'-'}</td>
         <td>${borrowStatusBadge(tx)}</td>
         <td>${escapeHtml(tx.issued_by||'-')}</td>
-        <td><div class="borrow-row-actions">${tx.status==='Borrowed'?`<button class="borrow-action-btn return" data-return-id="${escapeHtml(tx.id)}">รับคืน</button>`:''}<button class="borrow-action-btn delete" data-delete-borrow-id="${escapeHtml(tx.id)}">ลบ</button></div></td>
+        <td><div class="borrow-row-actions"><button class="borrow-action-btn report" data-report-borrow-id="${escapeHtml(tx.id)}">Report</button>${tx.status==='Borrowed'?`<button class="borrow-action-btn return" data-return-id="${escapeHtml(tx.id)}">รับคืน</button>`:''}<button class="borrow-action-btn delete" data-delete-borrow-id="${escapeHtml(tx.id)}">ลบ</button></div></td>
       </tr>`;
     }).join('');
   }
@@ -3412,6 +3483,143 @@ async function loadBorrowView(){
   borrowData = await fetchBorrowTransactions();
   if(!masterState.ready) await fetchMasterData(false);
   refreshBorrowView();
+}
+
+
+function transactionReportTypeText(tx){
+  return normalizeBorrowType(tx)==='permanent' ? 'ยืมถาวร' : 'ยืมชั่วคราว';
+}
+function transactionReportConditionText(v){
+  const map={Normal:'ปกติ / พร้อมใช้งาน',Damaged:'ชำรุด',Lost:'สูญหาย'};
+  return map[v] || v || '-';
+}
+function transactionReportStatusText(tx){
+  if(tx.status==='Returned') return 'คืนแล้ว';
+  if(tx.status==='Cancelled') return 'ยกเลิก';
+  if(isBorrowOverdue(tx)) return 'กำลังยืม / เกินกำหนด';
+  return 'กำลังยืม';
+}
+function reportMediaHtml(url,emptyText,alt='รูป'){ 
+  if(!url) return `<div class="trp-empty-media">${escapeHtml(emptyText)}</div>`;
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="trp-empty-media" style="display:none;">${escapeHtml(emptyText)}</div>`;
+}
+function reportSignatureHtml(url,role,name){
+  return `<div class="trp-sign-card">
+    <div class="trp-sign-role">${escapeHtml(role)}</div>
+    <div class="trp-sign-image">${reportMediaHtml(url,'ยังไม่มีลายเซ็น',role)}</div>
+    <div class="trp-sign-name">${escapeHtml(name||'-')}</div>
+  </div>`;
+}
+function buildTransactionReportHtml(tx,tool){
+  const toolImage=tool?.image_url || tx.borrow_photo_url || '';
+  const returned=tx.status==='Returned' || !!tx.returned_at;
+  const toolNo=tx.tool_no || tool?.tool_no || '-';
+  const asset=tx.asset_code || tool?.asset_code || '-';
+  const toolName=tx.tool_name || tool?.tool_name || '-';
+  return `<article class="transaction-report-paper" data-report-borrow-no="${escapeHtml(tx.borrow_no||'')}">
+    <div class="trp-header">
+      <div class="trp-company">บริษัท อาซีฟา จำกัด (มหาชน)</div>
+      <div class="trp-title">รายงานรายการยืม–คืนเครื่องมือ</div>
+    </div>
+    <div class="trp-meta">
+      <div class="cell"><div class="trp-label">เลขที่ยืม</div><div class="trp-value">${escapeHtml(tx.borrow_no||'-')}</div></div>
+      <div class="cell"><div class="trp-label">สถานะ</div><div class="trp-value">${escapeHtml(transactionReportStatusText(tx))}</div></div>
+    </div>
+
+    <section class="trp-section">
+      <div class="trp-section-title">ข้อมูลผู้ยืม</div>
+      <div class="trp-grid">
+        <div class="trp-field"><div class="trp-label">ผู้ยืม</div><div class="trp-value">${escapeHtml(tx.borrower_name||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">รหัสพนักงาน</div><div class="trp-value">${escapeHtml(tx.borrower_code||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">แผนก / หน่วยงาน</div><div class="trp-value">${escapeHtml(tx.borrower_department||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">เบอร์ติดต่อ</div><div class="trp-value">${escapeHtml(tx.borrower_contact||'-')}</div></div>
+      </div>
+    </section>
+
+    <section class="trp-section">
+      <div class="trp-section-title">ข้อมูลเครื่องมือ</div>
+      <div class="trp-photo-wrap">
+        <div class="trp-photo-box">${reportMediaHtml(toolImage,'ไม่มีรูปเครื่องมือ','รูปเครื่องมือ')}</div>
+        <div class="trp-grid">
+          <div class="trp-field full"><div class="trp-label">ชื่อเครื่องมือ</div><div class="trp-value">${escapeHtml(toolName)}</div></div>
+          <div class="trp-field"><div class="trp-label">Tool No.</div><div class="trp-value">${escapeHtml(toolNo)}</div></div>
+          <div class="trp-field"><div class="trp-label">รหัสทรัพย์สิน</div><div class="trp-value">${escapeHtml(asset)}</div></div>
+          <div class="trp-field full"><div class="trp-label">สภาพก่อนยืม</div><div class="trp-value">${escapeHtml(transactionReportConditionText(tx.condition_out))}</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trp-section">
+      <div class="trp-section-title">รายละเอียดการยืม</div>
+      <div class="trp-grid">
+        <div class="trp-field"><div class="trp-label">ประเภทการยืม</div><div class="trp-value">${escapeHtml(transactionReportTypeText(tx))}</div></div>
+        <div class="trp-field"><div class="trp-label">ผู้จ่ายเครื่องมือ</div><div class="trp-value">${escapeHtml(tx.issued_by||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">วันที่ / เวลายืม</div><div class="trp-value">${escapeHtml(fmtDateTime(tx.borrowed_at))}</div></div>
+        <div class="trp-field"><div class="trp-label">กำหนดคืน</div><div class="trp-value">${escapeHtml(tx.due_at?fmtDateTime(tx.due_at):'-')}</div></div>
+        <div class="trp-field full"><div class="trp-label">หมายเหตุ</div><div class="trp-value">${escapeHtml(tx.note||tx.purpose||'-')}</div></div>
+      </div>
+    </section>
+
+    ${returned?`<section class="trp-section">
+      <div class="trp-section-title">รายละเอียดการคืน</div>
+      <div class="trp-grid">
+        <div class="trp-field"><div class="trp-label">วันที่ / เวลาคืน</div><div class="trp-value">${escapeHtml(tx.returned_at?fmtDateTime(tx.returned_at):'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">ผู้รับคืน</div><div class="trp-value">${escapeHtml(tx.received_by||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">สภาพหลังคืน</div><div class="trp-value">${escapeHtml(transactionReportConditionText(tx.condition_in))}</div></div>
+        <div class="trp-field"><div class="trp-label">สถานะ</div><div class="trp-value">คืนแล้ว</div></div>
+        <div class="trp-field full"><div class="trp-label">หมายเหตุการคืน</div><div class="trp-value">${escapeHtml(tx.return_note||'-')}</div></div>
+      </div>
+    </section>`:''}
+
+    <section class="trp-section">
+      <div class="trp-section-title">ลายเซ็น</div>
+      <div class="trp-signatures">
+        ${reportSignatureHtml(tx.borrower_signature_url,'ลายเซ็นผู้ยืม',tx.borrower_name)}
+        ${reportSignatureHtml(tx.issuer_signature_url,'ลายเซ็นผู้จ่ายเครื่องมือ',tx.issued_by)}
+      </div>
+      ${returned?`<div class="trp-return-sign">${reportSignatureHtml(tx.receiver_signature_url,'ลายเซ็นผู้รับคืน',tx.received_by)}</div>`:''}
+    </section>
+
+    <div class="trp-footer">เลขที่ยืม ${escapeHtml(tx.borrow_no||'-')} · เอกสารสร้างจากระบบ Borrow / Return</div>
+  </article>`;
+}
+let currentTransactionReport={tx:null,tool:null};
+async function openTransactionReport(id){
+  try{
+    const {data:txRows,error:txErr}=await sb.from('borrow_transactions').select('*').eq('id',id).limit(1);
+    if(txErr) throw txErr;
+    if(!txRows?.length) throw new Error('ไม่พบ Transaction นี้ใน Supabase');
+    const tx=txRows[0];
+    let tool=toolData.find(t=>String(t.id)===String(tx.tool_id)) || null;
+    if(!tool && tx.tool_id){
+      const {data:toolRows,error:toolErr}=await sb.from('tools').select('*').eq('id',tx.tool_id).limit(1);
+      if(toolErr) console.warn('Load tool for transaction report',toolErr);
+      if(toolRows?.length) tool=toolRows[0];
+    }
+    currentTransactionReport={tx,tool};
+    document.getElementById('transactionReportPreview').innerHTML=buildTransactionReportHtml(tx,tool);
+    document.getElementById('transactionReportModal').classList.add('show');
+  }catch(err){
+    console.error('Open transaction report error',err);
+    showToast('เปิด Report ไม่สำเร็จ: '+(err.message||'เกิดข้อผิดพลาด'),'warn');
+  }
+}
+function closeTransactionReport(){
+  document.getElementById('transactionReportModal').classList.remove('show');
+  currentTransactionReport={tx:null,tool:null};
+}
+function transactionReportPrintCss(){
+  return `@page{size:A4 portrait;margin:8mm;}*{box-sizing:border-box;}body{margin:0;background:#fff;color:#000;font-family:'TH Sarabun New','TH SarabunPSK','Sarabun',sans-serif;} .transaction-report-paper{width:194mm;min-height:281mm;background:#fff;color:#000;padding:2mm 4mm;font-size:16px;line-height:1.25;} .trp-header{text-align:center;border-bottom:2px solid #000;padding-bottom:4mm;margin-bottom:5mm}.trp-company{font-size:22px;font-weight:700;line-height:1.15}.trp-title{font-size:24px;font-weight:700;line-height:1.15;margin-top:1mm}.trp-meta{display:grid;grid-template-columns:1fr 1fr;border:1px solid #000;margin-bottom:4mm}.trp-meta .cell{padding:2mm 3mm;border-right:1px solid #000;min-height:11mm}.trp-meta .cell:last-child{border-right:none}.trp-label{font-size:13px;color:#333;margin-bottom:.5mm}.trp-value{font-size:17px;font-weight:700;word-break:break-word}.trp-section{margin-top:4mm;break-inside:avoid;page-break-inside:avoid}.trp-section-title{font-size:18px;font-weight:700;border-bottom:1.5px solid #000;padding-bottom:1mm;margin-bottom:2mm}.trp-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #000;border-left:1px solid #000}.trp-field{min-height:14mm;padding:2mm 3mm;border-right:1px solid #000;border-bottom:1px solid #000}.trp-field.full{grid-column:1/-1}.trp-field .trp-value{font-weight:600;font-size:16px}.trp-photo-wrap{display:grid;grid-template-columns:85mm 1fr;gap:5mm;align-items:start}.trp-photo-box{height:62mm;border:1px solid #000;display:flex;align-items:center;justify-content:center;overflow:hidden}.trp-photo-box img{max-width:100%;max-height:100%;object-fit:contain}.trp-empty-media{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#555;font-size:16px;padding:4mm}.trp-signatures{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-top:2mm}.trp-sign-card{border:1px solid #000;min-height:48mm;padding:2mm 3mm;text-align:center;display:flex;flex-direction:column}.trp-sign-role{font-weight:700;font-size:16px;margin-bottom:1mm}.trp-sign-image{height:27mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.trp-sign-image img{max-width:100%;max-height:100%;object-fit:contain}.trp-sign-name{border-top:1px solid #000;margin-top:auto;padding-top:1mm;font-size:15px}.trp-return-sign{margin-top:4mm;max-width:50%}.trp-footer{margin-top:5mm;border-top:1px solid #000;padding-top:2mm;text-align:center;font-size:13px;color:#333}`;
+}
+function printTransactionReport(){
+  const tx=currentTransactionReport.tx;
+  if(!tx) return;
+  const reportHtml=document.getElementById('transactionReportPreview').innerHTML;
+  const w=window.open('','_blank','width=980,height=900');
+  if(!w){ showToast('Browser บล็อกหน้าต่าง Print กรุณาอนุญาต Pop-up','warn'); return; }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escapeHtml(tx.borrow_no||'Borrow Report')}</title><style>${transactionReportPrintCss()}</style></head><body>${reportHtml}<script>window.onload=()=>{setTimeout(()=>window.print(),250)};<\/script></body></html>`);
+  w.document.close();
 }
 
 function openBorrowModal(){
@@ -3447,6 +3655,7 @@ function openReturnModal(id){
   populateIssuerOptions();
   document.getElementById('r_received_by').value='';
   document.getElementById('r_return_note').value='';
+  document.getElementById('clearReceiverSig')?.click();
   const original = getOriginalReturnLocation(tx);
   document.getElementById('returnSummary').innerHTML=`
     <div class="item"><label>เลขที่ยืม</label><div>${escapeHtml(tx.borrow_no||'-')}</div></div>
@@ -3531,7 +3740,7 @@ async function deleteBorrowTransaction(id){
   }
 
   // ลบไฟล์แนบ/ลายเซ็นใน Storage เท่าที่หา path ได้ (ไม่กระทบถ้าลบไม่ได้)
-  const attachmentPaths=[tx.borrow_photo_url,tx.borrower_signature_url,tx.issuer_signature_url]
+  const attachmentPaths=[tx.borrow_photo_url,tx.borrower_signature_url,tx.issuer_signature_url,tx.receiver_signature_url]
     .map(storagePathFromPublicUrl).filter(Boolean);
   if(attachmentPaths.length){
     try{ await sb.storage.from('borrow-attachments').remove(attachmentPaths); }catch(err){ console.warn('Delete borrow attachments warning',err); }
@@ -3573,9 +3782,14 @@ document.getElementById('b_photo').addEventListener('change',e=>{
 document.getElementById('b_photo_clear').addEventListener('click',clearBorrowPhoto);
 initSignaturePad('borrowerSignature','clearBorrowerSig','borrower');
 initSignaturePad('issuerSignature','clearIssuerSig','issuer');
+initSignaturePad('receiverSignature','clearReceiverSig','receiver');
 document.getElementById('closeReturnModal').addEventListener('click',closeReturnModal);
 document.getElementById('cancelReturnModal').addEventListener('click',closeReturnModal);
 document.getElementById('returnBackdrop').addEventListener('click',closeReturnModal);
+document.getElementById('closeTransactionReport').addEventListener('click',closeTransactionReport);
+document.getElementById('closeTransactionReport2').addEventListener('click',closeTransactionReport);
+document.getElementById('transactionReportBackdrop').addEventListener('click',closeTransactionReport);
+document.getElementById('printTransactionReport').addEventListener('click',printTransactionReport);
 
 document.querySelectorAll('input[name="b_borrow_type"]').forEach(r=>r.addEventListener('change',updateBorrowTypeUI));
 
@@ -3632,6 +3846,8 @@ document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
 });
 
 document.getElementById('borrowTableBody').addEventListener('click',e=>{
+  const reportBtn=e.target.closest('[data-report-borrow-id]');
+  if(reportBtn){ openTransactionReport(reportBtn.dataset.reportBorrowId); return; }
   const returnBtn=e.target.closest('[data-return-id]');
   if(returnBtn){ openReturnModal(returnBtn.dataset.returnId); return; }
   const deleteBtn=e.target.closest('[data-delete-borrow-id]');
@@ -3666,6 +3882,7 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
   const btn=document.getElementById('saveReturnBtn');
   btn.disabled=true;
 
+  const uploadedReturnPaths=[];
   try{
     // อ่าน Transaction ล่าสุดจาก Supabase ก่อน เพื่อป้องกันข้อมูลหน้าเว็บค้าง/ซ้ำ
     // ใช้ limit(1) แทน .single() เพื่อไม่ให้เกิด PGRST116: Cannot coerce ... to a single JSON object
@@ -3695,6 +3912,14 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
       throw new Error('ไม่พบเครื่องมือที่ผูกกับรายการยืมนี้ใน Tool Master');
     }
 
+    let receiverSignatureUrl=tx.receiver_signature_url||null;
+    if(signatureState.receiver){
+      const receiverBlob=await canvasToBlob(document.getElementById('receiverSignature'));
+      const receiverSig=await uploadBorrowAttachment(receiverBlob,tx.borrow_no||tx.id,'png');
+      receiverSignatureUrl=receiverSig.url;
+      if(receiverSig.path) uploadedReturnPaths.push(receiverSig.path);
+    }
+
     const original=getOriginalReturnLocation(tx);
     const toolStatus=condition==='Damaged'?'Damaged':condition==='Lost'?'Lost':(tx.prev_status||'Available');
     const toolPatch={
@@ -3710,7 +3935,8 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
       returned_at:new Date(returnedAt).toISOString(),
       condition_in:condition,
       received_by:document.getElementById('r_received_by').value.trim(),
-      return_note:document.getElementById('r_return_note').value.trim()
+      return_note:document.getElementById('r_return_note').value.trim(),
+      receiver_signature_url:receiverSignatureUrl
     };
 
     // 1) คืน Tool Master กลับ Home Location เดิม
@@ -3770,6 +3996,7 @@ document.getElementById('saveReturnBtn').addEventListener('click',async()=>{
     refreshBorrowView();
     showToast(`รับคืน ${tx.tool_no} เรียบร้อย — กลับ ${original.detail}`);
   }catch(err){
+    if(uploadedReturnPaths.length) await removeBorrowAttachments(uploadedReturnPaths);
     console.error('Return save error',err);
     showToast('บันทึกการคืนไม่สำเร็จ: '+(err.message||'เกิดข้อผิดพลาด'),'warn');
   }finally{
