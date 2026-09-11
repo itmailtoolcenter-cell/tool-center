@@ -2745,9 +2745,15 @@ function updateBorrowTypeUI(){
   if(permanentNotice) permanentNotice.style.display = type==='permanent' ? 'block' : 'none';
   if(saveBtn) saveBtn.disabled = type==='permanent';
 }
-function makeBorrowNo(){
-  const d = new Date(), pad=n=>String(n).padStart(2,'0');
-  return `BR-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
+async function getNextBorrowNo(borrowType){
+  const type = borrowType === 'permanent' ? 'permanent' : 'temporary';
+  const { data, error } = await sb.rpc('next_borrow_no', { p_borrow_type:type });
+  if(error) throw new Error('สร้างเลขที่ยืมไม่สำเร็จ: '+(error.message||'Supabase RPC error'));
+  const borrowNo = String(data||'').trim();
+  if(!/^BR-[TP]-\d{6}-\d{4}$/.test(borrowNo)){
+    throw new Error('รูปแบบเลขที่ยืมจาก Supabase ไม่ถูกต้อง');
+  }
+  return borrowNo;
 }
 
 
@@ -3369,7 +3375,7 @@ function renderBorrowTable(){
     tbody.innerHTML=pageRows.map(tx=>{
       const dueClass=isBorrowOverdue(tx)?'borrow-overdue':'';
       return `<tr>
-        <td><b>${escapeHtml(tx.borrow_no||'-')}</b><div class="borrow-muted">${escapeHtml(tx.id ? String(tx.id).slice(0,8):'')}</div></td>
+        <td><b>${escapeHtml(tx.borrow_no||'-')}</b></td>
         <td>${borrowTypeBadge(tx)}</td>
         <td class="tool-name-cell"><b>${escapeHtml(tx.tool_name||'-')}</b><span>${escapeHtml(tx.tool_no||'-')} ${tx.asset_code?'· '+escapeHtml(tx.asset_code):''}</span></td>
         <td><b>${escapeHtml(tx.borrower_name||'-')}</b>${tx.borrower_code?`<div class="borrow-muted">${escapeHtml(tx.borrower_code)}</div>`:''}</td>
@@ -3591,7 +3597,8 @@ document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
   const btn=document.getElementById('saveBorrowBtn'); btn.disabled=true;
   let inserted=null; const uploadedPaths=[];
   try{
-    const borrowNo=makeBorrowNo();
+    // ให้ฐานข้อมูลเป็นผู้จอง Running Number แบบ atomic เพื่อป้องกันเลขซ้ำเมื่อหลาย User บันทึกพร้อมกัน
+    const borrowNo=await getNextBorrowNo(borrowType);
     let photo={url:null,path:null};
     if(selectedBorrowPhoto){ photo=await uploadBorrowAttachment(selectedBorrowPhoto,borrowNo,'jpg'); if(photo.path)uploadedPaths.push(photo.path); }
     const borrowerBlob=await canvasToBlob(document.getElementById('borrowerSignature'));
