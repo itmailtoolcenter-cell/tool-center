@@ -561,6 +561,28 @@ SECTION 12 : PART 2 · BORROW / RETURN
 .borrow-type-badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;}
 .borrow-type-badge.temporary{background:var(--blue-bg);color:var(--blue-fg);}
 .borrow-type-badge.permanent{background:var(--gray-bg);color:var(--gray-fg);}
+/* Usage location · required per transaction */
+.usage-location-segment{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px;background:#eef1f5;
+  border:1px solid var(--border);border-radius:10px;
+}
+.usage-location-option{position:relative;cursor:pointer;}
+.usage-location-option input{position:absolute;opacity:0;pointer-events:none;}
+.usage-location-option span{
+  display:flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;
+  border:1px solid transparent;border-radius:8px;font-size:13px;font-weight:700;
+  color:var(--text-sub);background:transparent;transition:.15s ease;
+}
+.usage-location-option input:checked + span{
+  background:#fff;color:var(--accent);border-color:#c7d8fc;box-shadow:var(--shadow-card);
+}
+.external-usage-fields{display:none;grid-column:1/-1;grid-template-columns:1fr 1fr;gap:14px 16px;}
+.external-usage-fields.show{display:grid;}
+.form-validation{display:none;margin-top:5px;font-size:11.8px;font-weight:600;color:var(--red-fg);}
+.form-validation.show{display:block;}
+.form-field.validation-error input,.form-field.validation-error select,.form-field.validation-error textarea{
+  border-color:var(--red-fg);box-shadow:0 0 0 3px rgba(217,56,46,.08);
+}
 .return-summary{
   background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:14px 16px;margin-bottom:16px;
   display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;
@@ -1322,6 +1344,32 @@ PART 2 : BORROW MODAL
             <label>กำหนดคืน</label>
             <input type="datetime-local" id="b_due_at">
           </div>
+          <div class="form-field full" id="usageLocationField">
+            <label>สถานที่ใช้งาน <span class="req">*</span></label>
+            <div class="usage-location-segment" role="radiogroup" aria-label="สถานที่ใช้งาน">
+              <label class="usage-location-option">
+                <input type="radio" name="b_usage_location" value="internal">
+                <span>ในบริษัท</span>
+              </label>
+              <label class="usage-location-option">
+                <input type="radio" name="b_usage_location" value="external">
+                <span>นอกบริษัท</span>
+              </label>
+            </div>
+            <div class="form-validation" id="b_usage_location_error">กรุณาเลือกสถานที่ใช้งาน</div>
+          </div>
+          <div class="external-usage-fields" id="externalUsageFields">
+            <div class="form-field full" id="usagePlaceField">
+              <label>สถานที่นำไปใช้งาน <span class="req">*</span></label>
+              <input type="text" id="b_usage_place" placeholder="ระบุสถานที่นำเครื่องมือไปใช้งาน">
+              <div class="form-validation" id="b_usage_place_error">กรุณาระบุสถานที่นำไปใช้งาน</div>
+            </div>
+            <div class="form-field full" id="usagePurposeField">
+              <label>วัตถุประสงค์ <span class="req">*</span></label>
+              <input type="text" id="b_purpose" placeholder="เช่น งานติดตั้งภายนอก / งานซ่อม / งานบริการ">
+              <div class="form-validation" id="b_purpose_error">กรุณาระบุวัตถุประสงค์</div>
+            </div>
+          </div>
           <div class="form-field">
             <label>สภาพก่อนยืม</label>
             <select id="b_condition_out"><option value="Normal">ปกติ</option><option value="Minor Issue">มีตำหนิเล็กน้อย</option></select>
@@ -1367,10 +1415,6 @@ PART 2 : BORROW MODAL
                 <div class="signature-hint">ใช้เป็นหลักฐานการส่งมอบเครื่องมือ</div>
               </div>
             </div>
-          </div>
-          <div class="form-field full">
-            <label>วัตถุประสงค์การใช้งาน</label>
-            <input type="text" id="b_purpose" placeholder="เช่น งานประกอบตู้ / งานติดตั้ง / งานซ่อม">
           </div>
           <div class="form-field full">
             <label>หมายเหตุ</label>
@@ -2816,6 +2860,61 @@ function updateBorrowTypeUI(){
   if(permanentNotice) permanentNotice.style.display = type==='permanent' ? 'block' : 'none';
   if(saveBtn) saveBtn.disabled = type==='permanent';
 }
+function getSelectedUsageLocation(){
+  return document.querySelector('input[name="b_usage_location"]:checked')?.value || '';
+}
+function setBorrowValidation(fieldId,errorId,show){
+  document.getElementById(fieldId)?.classList.toggle('validation-error',!!show);
+  document.getElementById(errorId)?.classList.toggle('show',!!show);
+}
+function resetBorrowUsageFields(){
+  document.querySelectorAll('input[name="b_usage_location"]').forEach(r=>{r.checked=false;});
+  const place=document.getElementById('b_usage_place');
+  const purpose=document.getElementById('b_purpose');
+  if(place) place.value='';
+  if(purpose) purpose.value='';
+  document.getElementById('externalUsageFields')?.classList.remove('show');
+  if(place) place.required=false;
+  if(purpose) purpose.required=false;
+  setBorrowValidation('usageLocationField','b_usage_location_error',false);
+  setBorrowValidation('usagePlaceField','b_usage_place_error',false);
+  setBorrowValidation('usagePurposeField','b_purpose_error',false);
+}
+function updateUsageLocationUI(){
+  const usage=getSelectedUsageLocation();
+  const external=usage==='external';
+  const wrap=document.getElementById('externalUsageFields');
+  const place=document.getElementById('b_usage_place');
+  const purpose=document.getElementById('b_purpose');
+  if(wrap) wrap.classList.toggle('show',external);
+  if(place) place.required=external;
+  if(purpose) purpose.required=external;
+  if(usage) setBorrowValidation('usageLocationField','b_usage_location_error',false);
+  if(!external){
+    if(place) place.value='';
+    if(purpose) purpose.value='';
+    setBorrowValidation('usagePlaceField','b_usage_place_error',false);
+    setBorrowValidation('usagePurposeField','b_purpose_error',false);
+  }
+}
+function validateBorrowUsageFields(){
+  const usage=getSelectedUsageLocation();
+  if(!usage){
+    setBorrowValidation('usageLocationField','b_usage_location_error',true);
+    return {ok:false,usageLocation:'',usagePlace:'',purpose:''};
+  }
+  setBorrowValidation('usageLocationField','b_usage_location_error',false);
+  const usagePlace=document.getElementById('b_usage_place')?.value.trim()||'';
+  const purpose=document.getElementById('b_purpose')?.value.trim()||'';
+  if(usage==='external'){
+    const placeMissing=!usagePlace;
+    const purposeMissing=!purpose;
+    setBorrowValidation('usagePlaceField','b_usage_place_error',placeMissing);
+    setBorrowValidation('usagePurposeField','b_purpose_error',purposeMissing);
+    if(placeMissing||purposeMissing) return {ok:false,usageLocation:usage,usagePlace,purpose};
+  }
+  return {ok:true,usageLocation:usage,usagePlace:usage==='external'?usagePlace:'',purpose:usage==='external'?purpose:''};
+}
 async function getNextBorrowNo(borrowType){
   const type = borrowType === 'permanent' ? 'permanent' : 'temporary';
   const { data, error } = await sb.rpc('next_borrow_no', { p_borrow_type:type });
@@ -3005,7 +3104,8 @@ function borrowReportPeriod(v){
 }
 function borrowReportNote(tx){
   const parts=[];
-  if(tx.purpose) parts.push(tx.purpose);
+  if(tx.usage_location==='external' && tx.usage_place) parts.push('สถานที่: '+tx.usage_place);
+  if(tx.purpose) parts.push('วัตถุประสงค์: '+tx.purpose);
   if(tx.return_condition && tx.return_condition!=='Normal') parts.push('คืน: '+tx.return_condition);
   if(tx.note) parts.push(tx.note);
   if(tx.return_note) parts.push(tx.return_note);
@@ -3013,13 +3113,10 @@ function borrowReportNote(tx){
   return parts.join(' / ') || '';
 }
 function borrowReportUsageMarks(tx){
-  // ปัจจุบันฐานข้อมูล Borrow / Return ยังไม่มี field บังคับสำหรับ "ในบริษัท / นอกบริษัท"
-  // จึงไม่เดาข้อมูลเอง แต่รองรับ field เหล่านี้หากเพิ่มในอนาคต
-  const raw=String(tx.usage_scope ?? tx.usage_type ?? tx.usage_location ?? tx.work_location ?? '').trim().toLowerCase();
-  if(!raw) return {inside:'',outside:''};
-  const inside = /(ในบริษัท|ภายในบริษัท|inside|internal|in company)/i.test(raw) ? '✓' : '';
-  const outside = /(นอกบริษัท|ภายนอกบริษัท|outside|external|site)/i.test(raw) ? '✓' : '';
-  return {inside,outside};
+  const raw=String(tx.usage_location||'').trim().toLowerCase();
+  if(raw==='internal') return {inside:'✓',outside:'',unspecified:false};
+  if(raw==='external') return {inside:'',outside:'✓',unspecified:false};
+  return {inside:'',outside:'',unspecified:true};
 }
 function buildBorrowReportRowHtml(tx, rowClass='data-row'){
   const period=borrowReportPeriod(tx.borrowed_at);
@@ -3031,8 +3128,9 @@ function buildBorrowReportRowHtml(tx, rowClass='data-row'){
     <td class="center asset-cell">${reportText(tx.asset_code||tx.tool_no||'')}</td>
     <td class="text-cell">${reportText(tx.tool_name||'')}</td>
     <td class="center dept-cell">${reportText(tx.borrower_department||'')}</td>
-    <td class="center check-cell">${usage.inside}</td>
-    <td class="center check-cell">${usage.outside}</td>
+    ${usage.unspecified
+      ? '<td class="center check-cell" colspan="2">ไม่ระบุ</td>'
+      : `<td class="center check-cell">${usage.inside}</td><td class="center check-cell">${usage.outside}</td>`}
     <td class="center person-cell">${reportText(tx.borrower_name||'')}</td>
     <td class="center person-cell">${reportText(tx.issued_by||'')}</td>
     <td class="center date-cell">${reportText(tx.returned_at?borrowReportDateOnly(tx.returned_at):'')}</td>
@@ -3489,6 +3587,11 @@ async function loadBorrowView(){
 function transactionReportTypeText(tx){
   return normalizeBorrowType(tx)==='permanent' ? 'ยืมถาวร' : 'ยืมชั่วคราว';
 }
+function transactionReportUsageText(tx){
+  if(tx?.usage_location==='internal') return 'ในบริษัท';
+  if(tx?.usage_location==='external') return 'นอกบริษัท';
+  return 'ไม่ระบุ';
+}
 function transactionReportConditionText(v){
   const map={Normal:'ปกติ / พร้อมใช้งาน',Damaged:'ชำรุด',Lost:'สูญหาย'};
   return map[v] || v || '-';
@@ -3556,7 +3659,10 @@ function buildTransactionReportHtml(tx,tool){
         <div class="trp-field"><div class="trp-label">ผู้จ่ายเครื่องมือ</div><div class="trp-value">${escapeHtml(tx.issued_by||'-')}</div></div>
         <div class="trp-field"><div class="trp-label">วันที่ / เวลายืม</div><div class="trp-value">${escapeHtml(fmtDateTime(tx.borrowed_at))}</div></div>
         <div class="trp-field"><div class="trp-label">กำหนดคืน</div><div class="trp-value">${escapeHtml(tx.due_at?fmtDateTime(tx.due_at):'-')}</div></div>
-        <div class="trp-field full"><div class="trp-label">หมายเหตุ</div><div class="trp-value">${escapeHtml(tx.note||tx.purpose||'-')}</div></div>
+        <div class="trp-field"><div class="trp-label">สถานที่ใช้งาน</div><div class="trp-value">${escapeHtml(transactionReportUsageText(tx))}</div></div>
+        <div class="trp-field"><div class="trp-label">สถานที่นำไปใช้งาน</div><div class="trp-value">${escapeHtml(tx.usage_location==='external'?(tx.usage_place||'-'):'-')}</div></div>
+        <div class="trp-field full"><div class="trp-label">วัตถุประสงค์</div><div class="trp-value">${escapeHtml(tx.purpose||'-')}</div></div>
+        <div class="trp-field full"><div class="trp-label">หมายเหตุ</div><div class="trp-value">${escapeHtml(tx.note||'-')}</div></div>
       </div>
     </section>
 
@@ -3626,6 +3732,7 @@ function openBorrowModal(){
   if(!borrowState.ready){ showToast('กรุณาตั้งค่าตาราง borrow_transactions ใน Supabase ก่อน', 'warn'); return; }
   if(!masterState.ready){ showToast('กรุณาตั้งค่า Employee / Department Master ก่อนบันทึกการยืม', 'warn'); return; }
   document.getElementById('borrowForm').reset(); clearBorrowerSelection();
+  resetBorrowUsageFields();
   const defaultType=document.querySelector('input[name="b_borrow_type"][value="temporary"]');
   if(defaultType) defaultType.checked=true;
   updateBorrowTypeUI();
@@ -3638,7 +3745,10 @@ function openBorrowModal(){
   document.getElementById('clearIssuerSig').click();
   document.getElementById('borrowModal').classList.add('show');
 }
-function closeBorrowModal(){ document.getElementById('borrowModal').classList.remove('show'); }
+function closeBorrowModal(){
+  document.getElementById('borrowModal').classList.remove('show');
+  resetBorrowUsageFields();
+}
 function getOriginalReturnLocation(tx){
   const type = tx?.prev_location_type || 'Center';
   const detail = tx?.prev_location_detail || (type==='Center' ? 'Center Stor' : type);
@@ -3792,10 +3902,19 @@ document.getElementById('transactionReportBackdrop').addEventListener('click',cl
 document.getElementById('printTransactionReport').addEventListener('click',printTransactionReport);
 
 document.querySelectorAll('input[name="b_borrow_type"]').forEach(r=>r.addEventListener('change',updateBorrowTypeUI));
+document.querySelectorAll('input[name="b_usage_location"]').forEach(r=>r.addEventListener('change',updateUsageLocationUI));
+document.getElementById('b_usage_place').addEventListener('input',()=>setBorrowValidation('usagePlaceField','b_usage_place_error',false));
+document.getElementById('b_purpose').addEventListener('input',()=>setBorrowValidation('usagePurposeField','b_purpose_error',false));
 
 document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
   const borrowType=getSelectedBorrowType();
   if(borrowType==='permanent'){ showToast('แบบฟอร์มการยืมถาวรอยู่ระหว่างการพัฒนา','warn'); return; }
+  const usageValidation=validateBorrowUsageFields();
+  if(!usageValidation.ok){
+    if(!usageValidation.usageLocation) showToast('กรุณาเลือกสถานที่ใช้งาน','warn');
+    else showToast('กรุณากรอกสถานที่นำไปใช้งานและวัตถุประสงค์ให้ครบ','warn');
+    return;
+  }
   const toolId=document.getElementById('b_tool_id').value;
   const employeeId=document.getElementById('b_employee_id').value;
   const borrowerName=document.getElementById('b_borrower_name').value.trim();
@@ -3826,7 +3945,8 @@ document.getElementById('saveBorrowBtn').addEventListener('click',async()=>{
       borrower_code:document.getElementById('b_borrower_code').value.trim(), borrower_name:borrowerName, borrower_department:dept,
       borrower_contact:document.getElementById('b_contact').value.trim(), borrowed_at:new Date(borrowedAt).toISOString(),
       due_at:document.getElementById('b_due_at').value?new Date(document.getElementById('b_due_at').value).toISOString():null,
-      purpose:document.getElementById('b_purpose').value.trim(), condition_out:document.getElementById('b_condition_out').value,
+      usage_location:usageValidation.usageLocation, usage_place:usageValidation.usagePlace||null,
+      purpose:usageValidation.purpose, condition_out:document.getElementById('b_condition_out').value,
       issued_by:issuedBy, note:document.getElementById('b_note').value.trim(), status:'Borrowed',
       borrow_photo_url:photo.url, borrower_signature_url:borrowerSig.url, issuer_signature_url:issuerSig.url,
       prev_status:tool.status||'', prev_location_type:tool.location_type||'', prev_location_detail:tool.location_detail||'', prev_responsible:tool.responsible||'', prev_department:tool.department||''
